@@ -1,0 +1,17 @@
+ALL AIRCRAFT 128.95 — Aircraft to aircraft (chat frequency
+within NZ FIR)
+* * 123.45 — *Air to Air Channel for remote and
+oceanic areas out of range of VHF
+ground stations
+ALEXANDRA FIS Christchurch 122.2 H24
+COM Information
+ALEXANDRA NDB LX 386 S45 09 55.9 H24 E
+NAV E169 28 47.5 Rated coverage 20 NM
+ARDMORE FIS Auckland 120.1 H24 AVBL for IFR ACFT on GND at
+CCOOMM Approach NZAR
+UNICOM Ardmore 118.1 HO
+UNICOM
+AWIB Ardmore 121.0 HO
+ASHBURTON FIS Christchurch 120.9 H24 AVBL for IFR ACFT on GND at
+COM Approach NZAS
+
