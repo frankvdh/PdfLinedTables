@@ -179,10 +179,10 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
         super.processPage(page);
     }
 
-    private boolean endTableFound;
+    protected boolean endTableFound;
 
     /**
-     * Extract a table matching the criteria on the given page.
+     * Append the section of the table matching the criteria on the current page.
      *
      * Finds the table, and removes extraneous lines, rectangles, and text Scans
      * the rectangles sorted collection for the first rectangle of the heading

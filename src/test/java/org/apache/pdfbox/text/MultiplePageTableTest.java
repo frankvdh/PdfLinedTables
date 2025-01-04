@@ -21,7 +21,6 @@ import org.junit.Test;
 
 public class MultiplePageTableTest {
 
-    private static final double MARGIN_HEIGHT = 57.0;
     public static final Logger LOG = LogManager.getLogger(MultiplePageTable.class.getName());
 
     /**
