@@ -8,17 +8,17 @@ import java.awt.Color;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.TreeSet;
 import java.util.regex.Pattern;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
-import org.apache.pdfbox.pdmodel.PDPage;
 
 /**
  * Extract irregular tables
  *
  * @author frank
  */
-public class IrregularLinedTable extends LinedTableStripper {
+public class IrregularLinedTable extends MultiplePageTable {
 
     /**
      * Constructor for extractor for irregular tables...
@@ -31,37 +31,22 @@ public class IrregularLinedTable extends LinedTableStripper {
      * @throws IOException If there is an error loading properties from the
      * file.
      */
-    public IrregularLinedTable(PDPage page, boolean forceRotation, boolean suppressDuplicates) throws IOException {
-        super(page, forceRotation, suppressDuplicates);
+    public IrregularLinedTable(PDDocument document, int firstPage, boolean forceRotation, boolean suppressDuplicates) throws IOException {
+        super(document, firstPage, forceRotation, suppressDuplicates);
     }
 
     /**
-     * Extract the defined table
+     * Constructor.
      *
-     * @param file PDF file to read from
-     * @param firstPageNo First page of table, zero-based
-     * @param bounds page bounds to include
-     * @param tableStart Regex to identify start of table
-     * @param firstData Regex to identify first data in table
-     * @param tableEnd Regex to identify end of table
-     * @param wrapChar Char to use when wrapping
-     * @param insertSpaces Flag to insert multiple spaces
-     * @param monoSpace Monospace
-     * @param forceRotation Forge page rotation
-     * @return table array
+     * @param file File to be read.
+     * @param firstPage Number of page to read, zero-based
+     * @param forceRotation Force page rotation flag
+     * @param suppressDuplicates Ignore duplicate text used for bold printing
      * @throws IOException If there is an error loading properties from the
      * file.
      */
-    public static ArrayList<String[]> extract(File file, int firstPageNo, Color heading, Color firstData, Pattern tableEnd,
-            boolean forceRotation) throws IOException {
-        try (PDDocument doc = Loader.loadPDF(file)) {
-            for (int pageNo = firstPageNo;; pageNo++) {
-                IrregularLinedTable stripper = new IrregularLinedTable(doc.getPage(pageNo), forceRotation, true);
-//               FRectangle tableBounds = stripper.findTable(heading, firstData, tableEnd);
-                LOG.error("extract({}, Page {})", file.getName(), pageNo);
-//                var result = stripper.extractTable(tableBounds.getMaxY(), true);
-            }
-        }
+    public IrregularLinedTable(File file, int firstPage, boolean forceRotation, boolean suppressDuplicates) throws IOException {
+        this(Loader.loadPDF(file), firstPage, forceRotation, suppressDuplicates);
     }
 
     /**
@@ -90,76 +75,51 @@ public class IrregularLinedTable extends LinedTableStripper {
      * @return true on success
      */
     
-    public boolean extractTable(final double tableTop, boolean removeBelow
-    ) {
-        /*
-        var tableEndFound = prepare(tableTop, removeBelow);
-        if (!tableEndFound) {
-            log.info("Table spans multiple pages");
-        }
-// TODO Does not correctly split text into rectangles
-        for (var t : textItems) {
-            if (t.str.isBlank()) {
-                continue;
-            }
-            TableCell text = new TableCell(t.x, t.y, t.width, t.height);
-            log.finer("text {}", text);
-            double left = pageSize.getMinX();
-            double right = pageSize.getMaxX();
-            for (TableCell v : vertLines) {
-                if (v.getMaxY() < text.getMinY()) {
-                    break;
-                }
-                if (v.getMinY() > text.getMaxY()) {
-                    continue;
-                }
-                if (v.getMaxX() < text.getMinX() && left < v.getMaxX()) {
-                    log.finest("left {}", v);
-                    left = v.getMaxX();
-                }
-                if (v.getMinX() > text.getMaxX() && right > v.getMinX()) {
-                    log.finest("right {}", v);
-                    right = v.getMinX();
-                }
-            }
-
-            log.finest("left = {}, right = {}", left, right);
-
-            double top = pageSize.getMaxY();
-            double bottom = pageSize.getMinY();
-            for (TableCell h : horizLines) {
-                if (h.getMaxY() < text.getMinY() && bottom != pageSize.getMinY()) {
-                    break;
-                }
-                if (h.getMinX() >= text.getMaxX() || h.getMaxX() <= text.getMinX()) {
-                    continue;
-                }
-                if (h.getMinY() < top && h.getMinY() > text.getMaxY()) {
-                    log.finest("top {}", h);
-                    top = h.getMinY();
-                }
-                if (h.getMaxY() > bottom && h.getMaxY() < text.getMinY()) {
-                    log.finest("bottom {}", h);
-                    bottom = h.getMaxY();
-                }
-            }
-            log.finest("bottom = {}, top = {}", bottom, top);
-
-            TableCell rect = new TableCell(left, bottom, right - left, top - bottom);
-            log.finer("Cell rectangle: {}", rect);
-            if (rectangles.contains(rect)) {
-                rect = rectangles.ceiling(rect);
-            } else {
-                rectangles.add(rect);
-            }
-            log.finest("Cell rectangle before: {}", rect);
-            rect.text.add(t);
-            log.finer("Cell rectangle: {}", rect);
-        }
+    @Override
+    public ArrayList<String[]> extractTable(Color headingColour, Color dataColour, Pattern tableEnd, int numColumns) throws IOException {
+        super.extractCells(headingColour, dataColour, tableEnd);
         buildRegularTable();
-        return tableEndFound;
-        */
-        return false;
+    }
+
+    /**
+     * Append the section of the table matching the criteria on the current page.
+     *
+     * Finds the table, and removes extraneous lines, rectangles, and text Scans
+     * the rectangles sorted collection for the first rectangle of the heading
+     * colour. Then expands the X,Y limits until it finds the first data colour
+     * rectangle (if any). The bottom of the heading, and therefore the top of
+     * the data, is at this Y coordinate.
+     *
+     * It then extracts text below the heading and between the X,Y bounds, and
+     * scans it for the tableEnd pattern.
+     *
+     * @param headingColour Fill colour of heading, may be null
+     * @param dataColour Fill colour of data, may be null
+     * @param tableEnd Pattern to identify end of table
+     * @return the bounds of the table.
+     *
+     * @throws java.io.IOException for file errors May be overridden if there is
+     * some other mechanism to identify the top of the table.
+     */
+    public boolean appendToTable(Color headingColour, Color dataColour, Pattern tableEnd, int numColumns, ArrayList<String[]> table) throws IOException {
+        TreeSet<TableCell> rects = (TreeSet<TableCell>) extractCells(headingColour, dataColour, tableEnd);
+        if (rects == null) {
+            return false;
+        }
+        String[] row = new String[numColumns];
+        int colNum = 0;
+        for (TableCell r : rects) {
+            row[colNum++] = r.getText();
+            if (colNum >= numColumns) {
+                table.add(row);
+                row = new String[numColumns];
+                colNum = 0;
+            }
+        }
+        if (colNum > 0) {
+            table.add(row);
+        }
+        return endTableFound;
     }
 
     /**
@@ -174,7 +134,7 @@ public class IrregularLinedTable extends LinedTableStripper {
      * 'wrapChar'. Horizontal spacing of the text will be maintained depending
      * on the state of the 'instertSpaces' and 'monoSpace' flags.
      */
-    /*
+    
     private void buildRegularTable() {
 //        System.out.printf("\n\nHoriz lines: ");
         // Remove text below the bottom horizontal line -- these are footnotes
@@ -274,5 +234,4 @@ public class IrregularLinedTable extends LinedTableStripper {
             table.add(strRow);
         }
     }
-*/
 }
