@@ -32,8 +32,8 @@ public class IrregularLinedTable extends MultiplePageTable {
      * @throws IOException If there is an error loading properties from the
      * file.
      */
-    public IrregularLinedTable(PDDocument document, int firstPage, boolean forceRotation, boolean suppressDuplicates) throws IOException {
-        super(document, firstPage, forceRotation, suppressDuplicates);
+    public IrregularLinedTable(PDDocument document, int firstPage, int extraRotation, boolean suppressDuplicates) throws IOException {
+        super(document, firstPage, extraRotation, suppressDuplicates);
     }
 
     /**
@@ -46,8 +46,8 @@ public class IrregularLinedTable extends MultiplePageTable {
      * @throws IOException If there is an error loading properties from the
      * file.
      */
-    public IrregularLinedTable(File file, int firstPage, boolean forceRotation, boolean suppressDuplicates) throws IOException {
-        this(Loader.loadPDF(file), firstPage, forceRotation, suppressDuplicates);
+    public IrregularLinedTable(File file, int firstPage, int extraRotation, boolean suppressDuplicates) throws IOException {
+        this(Loader.loadPDF(file), firstPage, extraRotation, suppressDuplicates);
     }
 
     /**

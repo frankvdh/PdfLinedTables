@@ -64,8 +64,8 @@ public class MultiplePageTable extends LinedTableStripper {
      * @throws IOException If there is an error loading properties from the
      * file.
      */
-    public MultiplePageTable(File file, int firstPage, boolean forceRotation, boolean suppressDuplicates) throws IOException {
-        this(Loader.loadPDF(file), firstPage, forceRotation, suppressDuplicates);
+    public MultiplePageTable(File file, int firstPage, int extraRotation, boolean suppressDuplicates) throws IOException {
+        this(Loader.loadPDF(file), firstPage, extraRotation, suppressDuplicates);
     }
 
     /**
@@ -78,8 +78,8 @@ public class MultiplePageTable extends LinedTableStripper {
      * @throws IOException If there is an error loading properties from the
      * file.
      */
-    protected MultiplePageTable(PDDocument document, int firstPage, boolean forceRotation, boolean suppressDuplicates) throws IOException {
-        super(document.getPage(firstPage), forceRotation, suppressDuplicates);
+    protected MultiplePageTable(PDDocument document, int firstPage, int extraRotation, boolean suppressDuplicates) throws IOException {
+        super(document.getPage(firstPage), extraRotation, suppressDuplicates);
         currPage = firstPage;
         doc = document;
     }
@@ -96,7 +96,7 @@ public class MultiplePageTable extends LinedTableStripper {
         ArrayList<String[]> result = new ArrayList<>();
         do {
             super.processPage(doc.getPage(currPage++));
-        } while (currPage < doc.getNumberOfPages() && !super.appendToTable(headingColour, dataColour, tableEnd, numColumns, result));
+        } while (currPage <= doc.getNumberOfPages() && !super.appendToTable(headingColour, dataColour, tableEnd, numColumns, result));
         return result;
     }
 }

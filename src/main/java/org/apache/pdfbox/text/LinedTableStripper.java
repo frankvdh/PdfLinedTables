@@ -132,7 +132,7 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
      *
      */
     final protected FRectangle pageSize = new FRectangle();
-    final private boolean isRotated;
+    final private int extraRotation;
     final private boolean suppressDuplicateOverlappingText;
     private final GeneralPath linePath = new GeneralPath();
 
@@ -140,13 +140,13 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
      * Constructor.
      *
      * @param page Page to be read.
-     * @param forceRotation Force page rotation flag
+     * @param extraRotation Force page rotation flag
      * @throws IOException If there is an error loading properties from the
      * file.
      */
-    public LinedTableStripper(PDPage page, boolean forceRotation, boolean suppressDuplicates) throws IOException {
+    public LinedTableStripper(PDPage page, int extraRotation, boolean suppressDuplicates) throws IOException {
         super(page);
-        isRotated = forceRotation || page.getRotation() == 90;
+        this.extraRotation = extraRotation;
         suppressDuplicateOverlappingText = suppressDuplicates;
     }
 
@@ -159,8 +159,9 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
      */
     @Override
     final public void processPage(PDPage page) throws IOException {
-        if (isRotated) {
-            page.setRotation(90);
+        LOG.debug("Rotated: {}", page.getRotation());
+        if (extraRotation != 0) {
+            page.setRotation(page.getRotation() + extraRotation);
         }
         LOG.debug("Rotated: {}", page.getRotation());
         pageSize.setMinMax((int) page.getCropBox().getLowerLeftX(), (int) page.getCropBox().getLowerLeftY(),
@@ -245,10 +246,10 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
      */
     protected SortedSet<TableCell> extractCells(Color headingColour, Color dataColour, Pattern tableEnd) throws IOException {
         FRectangle bounds = findTable(headingColour, dataColour);
-        LOG.debug("Table bounds: {}", bounds);
         if (bounds == null) {
             return null;
         }
+        LOG.debug("Table bounds: {}", bounds);
         // Now have located top of data in the table, and left & right limits
 
         // Copy text items that are inside the boundary, down to the end of 
@@ -579,7 +580,7 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
             linePath.reset();
             return;
         }
-        if (isRotated) {
+        if (extraRotation != 0) {
             bounds.setRect(bounds.getMinY(), bounds.getMinX(), bounds.getHeight(), bounds.getWidth());
         }
         if (bounds.getHeight() < 3 || bounds.getWidth() < 3) {
@@ -608,7 +609,7 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
      */
     @Override
     public void strokePath() throws IOException {
-        LOG.debug("strokePath: {}", linePath.getBounds());
+        LOG.trace("strokePath: {}", linePath.getBounds());
         addRectPath(null, getStrokingColor(), getStroke());
     }
 
@@ -619,7 +620,7 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
      */
     @Override
     public void fillPath(int windingRule) throws IOException {
-        LOG.debug("fillPath: {}, {}", linePath.getBounds(), getNonStrokingColor());
+        LOG.trace("fillPath: {}, {}", linePath.getBounds(), getNonStrokingColor());
         addRectPath(getNonStrokingColor(), null, null);
     }
 
@@ -940,7 +941,7 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
         boolean showChar = true;
         String ch = text.getUnicode();
         float x, y;
-        if (isRotated) {
+        if (extraRotation == 90) {
             y = (int) text.getX();
             x = (int) (text.getY() - text.getHeight());
         } else {

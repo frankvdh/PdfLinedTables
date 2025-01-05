@@ -37,8 +37,8 @@ public class IrregularSinglePageTable extends SinglePageTable {
      * @throws IOException If there is an error loading properties from the
      * file.
      */
-    public IrregularSinglePageTable(PDDocument doc, int pageNum, boolean forceRotation, boolean suppressDuplicates) throws IOException {
-        super(doc, pageNum, forceRotation, suppressDuplicates);
+    public IrregularSinglePageTable(PDDocument doc, int pageNum, int extraRotation, boolean suppressDuplicates) throws IOException {
+        super(doc, pageNum, extraRotation, suppressDuplicates);
     }
 
     /**
