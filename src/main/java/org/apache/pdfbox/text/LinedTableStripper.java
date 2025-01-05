@@ -166,7 +166,7 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
         pageSize.setMinMax((int) page.getCropBox().getLowerLeftX(), (int) page.getCropBox().getLowerLeftY(),
                 (int) page.getCropBox().getUpperRightX() + 1, (int) page.getCropBox().getUpperRightY() + 1);
         // Some code below depends on the page lower left corner being at (0,0)
-        if (pageSize.minX != 0 || pageSize.minY != 0) {
+        if (pageSize.getMinX() != 0 || pageSize.getMinY() != 0) {
             LOG.warn("Page is not zero-based: {}", pageSize);
         }
         LOG.debug("Page size: {}", pageSize);
@@ -182,13 +182,14 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
     protected boolean endTableFound;
 
     /**
-     * Append the section of the table matching the criteria on the current page.
+     * Append the section of the table matching the criteria on the current
+     * page.
      *
-     * Finds the table, and removes extraneous lines, rectangles, and text Scans
-     * the rectangles sorted collection for the first rectangle of the heading
-     * colour. Then expands the X,Y limits until it finds the first data colour
-     * rectangle (if any). The bottom of the heading, and therefore the top of
-     * the data, is at this Y coordinate.
+     * Finds the table, and removes extraneous lines, rectangles, and text.
+     * Scans the @rectangles sorted collection for the first rectangle of the
+     * heading colour. Then expands the X,Y limits until it finds the first data
+     * colour rectangle (if any). The bottom of the heading, and therefore the
+     * top of the data, is at this Y coordinate.
      *
      * It then extracts text below the heading and between the X,Y bounds, and
      * scans it for the tableEnd pattern.
@@ -244,6 +245,7 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
      */
     protected SortedSet<TableCell> extractCells(Color headingColour, Color dataColour, Pattern tableEnd) throws IOException {
         FRectangle bounds = findTable(headingColour, dataColour);
+        LOG.debug("Table bounds: {}", bounds);
         if (bounds == null) {
             return null;
         }
@@ -254,23 +256,31 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
         buildCharMap(bounds);
 
         // Find the end of the table
-        bounds.maxY = findEndTable(bounds.minY, tableEnd);
+        bounds.setMaxY(findEndTable(bounds.getMinY(), tableEnd));
 
         // Now have all table limits identified
         // Extract subsets of the lines, rectangles, and text within these limits.
         // Keep horizontal lines that extend left of the table
-        SortedSet<FRectangle> horiz = horizLines.subSet(new FRectangle(pageSize.minX, bounds.minY + 1), new FRectangle(pageSize.getMaxX(), pageSize.getMaxY()));
+        SortedSet<FRectangle> horiz = horizLines.subSet(new FRectangle(pageSize.getMinX(), bounds.getMinY() + 1), new FRectangle(pageSize.getMaxX(), pageSize.getMaxY()));
         horiz.removeIf((FRectangle h) -> !bounds.intersects(h));
-        horiz.forEach((FRectangle h) -> h.trimX(bounds.minX, bounds.maxX));
+        if (horiz.isEmpty()) {
+            LOG.error("No horizontal lines in table");
+            return null;
+        }
+        horiz.forEach((FRectangle h) -> h.trimX(bounds.getMinX(), bounds.getMaxX()));
         // Remove rectangles and text items that are below the last horizontal line of the table... this removes any footnotes
-        bounds.maxY = horiz.last().maxY;
+        bounds.setMaxY(horiz.getLast().getMaxY());
         // Initially  include vertical lines which extend above the top of the table
-        SortedSet<FRectangle> vert = vertLines.subSet(new FRectangle(bounds.minX - 1, pageSize.minY), new FRectangle(bounds.maxX, bounds.maxY));
-        vert.forEach((FRectangle v) -> v.trimY(bounds.minY, bounds.maxY));
+        SortedSet<FRectangle> vert = vertLines.subSet(new FRectangle(bounds.getMinX() - 1, pageSize.getMinY()), new FRectangle(bounds.getMaxX(), bounds.getMaxY()));
+        vert.forEach((FRectangle v) -> v.trimY(bounds.getMinY(), bounds.getMaxY()));
         vert.removeIf((FRectangle v) -> v.getHeight() == 0 || !bounds.intersects(v));
+        if (vert.isEmpty()) {
+            LOG.error("No vertical lines in table");
+            return null;
+        }
 
         // Initially  include rectangles which extend above the top of the table
-        SortedSet<TableCell> rects = rectangles.subSet(new TableCell(bounds.minX - 1, pageSize.minY), new TableCell(bounds.maxX, bounds.maxY));
+        SortedSet<TableCell> rects = rectangles.subSet(new TableCell(bounds.getMinX() - 1, pageSize.getMinY()), new TableCell(bounds.getMaxX(), bounds.getMaxY()));
         rects.forEach((FRectangle r) -> {
             r.intersect(bounds);
         });
@@ -284,6 +294,10 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
             if (yEntry.getValue().isEmpty()) {
                 yIt.remove();
             }
+        }
+        if (textLocationsByYX.isEmpty()) {
+            LOG.error("No text in table");
+            return null;
         }
 
         rects.forEach(r -> {
@@ -322,11 +336,11 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
                     h1 = itH.next();
                     itH.remove();
                     if (h1.intersects(v0)) {
-                        v0.trimY(h1.minY, pageSize.getMaxY());
+                        v0.trimY(h1.getMinY(), pageSize.getMaxY());
                         if (v0.getHeight() > 1) {
                             vert.add(v0);
                         }
-                        bottom = h1.minY;
+                        bottom = h1.getMinY();
                         break;
                     }
                     if (h1.getMaxY() > v0.getMaxY()) {
@@ -338,7 +352,7 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
                     //unused bit and try next vertical line
                     if (h1 != null) {
                         horiz.add(h1);
-                        v0.trimY(h1.minY, pageSize.getMaxY());
+                        v0.trimY(h1.getMinY(), pageSize.getMaxY());
                         if (v0.getHeight() > 1) {
                             vert.add(v0);
                         }
@@ -356,12 +370,12 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
                     }
 
                     // Found right edge
-                    LOG.trace("Cell: ({}, {}), ({}, {})", v0.minX, top, v1.minX, bottom);
-                    TableCell r = new TableCell(v0.minX, top, v1.minX, bottom);
+                    LOG.trace("Cell: ({}, {}), ({}, {})", v0.getMinX(), top, v1.getMinX(), bottom);
+                    TableCell r = new TableCell(v0.getMinX(), top, v1.getMinX(), bottom);
                     r.setText(getRectangleText(r, tableContents));
                     rects.add(r);
                     assert (h1 != null);
-                    h1.trimX(v1.maxX, pageSize.getMaxX());
+                    h1.trimX(v1.getMaxX(), pageSize.getMaxX());
                     if (h1.getWidth() > 1) {
                         horiz.add(h1);
                     }
@@ -381,8 +395,8 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
      */
     protected String getRectangleText(FRectangle rect, SortedMap<Float, SortedMap<Float, String>> tableContents) {
         StringBuilder sb = new StringBuilder(100);
-        SortedMap<Float, SortedMap<Float, String>> yRange = tableContents.tailMap(rect.minY).headMap(rect.maxY);
-        yRange.values().stream().map(row -> row.tailMap(rect.minX).headMap(rect.maxX)).map(xRange -> {
+        SortedMap<Float, SortedMap<Float, String>> yRange = tableContents.tailMap(rect.getMinY()).headMap(rect.getMaxY());
+        yRange.values().stream().map(row -> row.tailMap(rect.getMinX()).headMap(rect.getMaxX())).map(xRange -> {
             xRange.values().forEach((String s) -> sb.append(s));
             return xRange;
         }).forEachOrdered(_item -> {
@@ -422,8 +436,8 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
                 }
             }
 
-            LOG.warn("Table end delimiter \"{}\" not found\n", tableEnd.toString());
-            return pageSize.maxY;
+            LOG.warn("Table end delimiter \"{}\" not found", tableEnd.toString());
+            return pageSize.getMaxY();
         }
         if (!horizLines.isEmpty()) {
             // Assume that the last horizontal line on the page is the bottom of the table
@@ -434,7 +448,7 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
             return tableBottom;
         }
         LOG.warn("No Table end delimiter specified and no horizontal line found");
-        return pageSize.maxY;
+        return pageSize.getMaxY();
     }
 
     /**
@@ -455,15 +469,15 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
      */
     protected FRectangle findTable(Color headingColour, Color dataColour) throws IOException {
         LOG.debug("findTable(\"{}\", \"{}\")", headingColour, dataColour);
-        FRectangle bounds = new FRectangle(-1, pageSize.minY, -1, pageSize.maxY);
+        FRectangle bounds = new FRectangle(-1, pageSize.getMinY(), -1, pageSize.getMaxY());
         boolean headingFound = false;
         if (headingColour == null) {
             // TODO
             if (!horizLines.isEmpty()) {
-                bounds.minY = horizLines.first().getMinY();
+                bounds.setMinY(horizLines.first().getMinY());
             }
             if (!rectangles.isEmpty()) {
-                bounds.minY = Math.min(bounds.minY, rectangles.first().getMinY());
+                bounds.setMinY(Math.min(bounds.getMinY(), rectangles.first().getMinY()));
             }
             headingFound = true;
         }
@@ -472,28 +486,33 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
         // If no colour is specified, the first rectangle is taken
         // Subsequent rectangles until a dataColour rectangle provide the left and right boundaries of the table
         for (FRectangle r : rectangles) {
-            int fill = r.getFillColour().getRGB();
-            if (headingColour == null || fill == headingColour.getRGB()) {
-                if (r.getMaxX() > bounds.maxX || bounds.maxX == -1) {
-                    bounds.maxX = r.getMaxX() + 1;
+            Color fillColour = r.getFillColour();
+            if (headingColour == null || (fillColour != null && fillColour.getRGB() == headingColour.getRGB())) {
+                if (r.getMaxX() > bounds.getMaxX() || bounds.getMaxX() == -1) {
+                    bounds.setMaxX(r.getMaxX() + 1);
                 }
-                if (r.getMinX() < bounds.minX || bounds.minX == -1) {
-                    bounds.minX = r.getMinX();
+                if (r.getMinX() < bounds.getMinX() || bounds.getMinX() == -1) {
+                    bounds.setMinX(r.getMinX());
                 }
-                if (r.getMaxY() > bounds.minY) {
-                    bounds.minY = r.getMaxY();
+                if (r.getMaxY() > bounds.getMinY()) {
+                    bounds.setMinY(r.getMaxY());
                 }
                 headingFound = true;
             } else {
+                if (r.getMaxY() <= bounds.getMaxY()) {
+                    // Ignore uncoloured rectangles which overlay the heading
+                    // These are lines to delineate the heading cells
+                    continue;
+                }
                 if (headingFound) {
-                    if (dataColour == null || fill == dataColour.getRGB()) {
+                    if (dataColour == null || (fillColour != null && fillColour.getRGB() == dataColour.getRGB())) {
                         break;
                     }
                 }
             }
         }
 
-        if (bounds.minX == pageSize.maxX) {
+        if (bounds.getMinX() == pageSize.getMaxX()) {
             return null;
         }
         return bounds;
@@ -505,11 +524,12 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
      * @param bounds
      */
     protected void buildCharMap(FRectangle bounds) {
+        // TODO Handle page rotation
         textLocationsByChar.entrySet().forEach(charEntry -> {
             String ch = charEntry.getKey();
-            SortedMap<Float, TreeSet<Float>> yMap = charEntry.getValue().subMap(bounds.minY, bounds.maxY);
+            SortedMap<Float, TreeSet<Float>> yMap = charEntry.getValue().subMap(bounds.getMinY(), bounds.getMaxY());
             yMap.entrySet().forEach(yEntry -> {
-                SortedSet<Float> xMap = yEntry.getValue().subSet(bounds.minX, bounds.maxX);
+                SortedSet<Float> xMap = yEntry.getValue().subSet(bounds.getMinX(), bounds.getMaxX());
                 if (!(xMap.isEmpty())) {
                     SortedMap<Float, String> sortedRow = textLocationsByYX.computeIfAbsent(yEntry.getKey(), k -> new TreeMap<>());
                     xMap.forEach(x -> {
@@ -559,20 +579,25 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
             linePath.reset();
             return;
         }
-        FRectangle rect = new FRectangle((float) bounds.getMinX(), pageSize.maxY - (float) bounds.getMaxY(), (float) bounds.getMaxX(), pageSize.maxY - (float) bounds.getMinY());
-        rect.setColours(fillColour, strokeColour, stroke);
-
-        // Add a rectangle to the appropriate sorted list (horizLines, vertLines, boxes).
-        // 2.5 is a kludge -- NZKM.pdf has rectangles 2.96 wide that are not vertical lines
-        if (bounds.getHeight() < 3) {
-            horizLines.add(rect);
-        } else if (bounds.getWidth() < 3) {
-            vertLines.add(rect);
-        } else {
-            TableCell r = new TableCell(fillColour, strokeColour, stroke, rect.minX, rect.minY, rect.maxX, rect.maxY);
-            rectangles.add(r);
+        if (isRotated) {
+            bounds.setRect(bounds.getMinY(), bounds.getMinX(), bounds.getHeight(), bounds.getWidth());
         }
-        LOG.trace("linePath added {}", rect);
+        if (bounds.getHeight() < 3 || bounds.getWidth() < 3) {
+            FRectangle line = new FRectangle(null, strokeColour, stroke, (float) bounds.getMinX(), pageSize.getMaxY() - (float) bounds.getMaxY(), (float) bounds.getMaxX(), pageSize.getMaxY() - (float) bounds.getMinY());
+            LOG.debug("line added {}", line);
+
+            // Add a rectangle to the appropriate sorted list (horizLines, vertLines, boxes).
+            // 2.5 is a kludge -- NZKM.pdf has rectangles 2.96 wide that are not vertical lines
+            if (bounds.getHeight() < 3) {
+                horizLines.add(line);
+            } else {
+                vertLines.add(line);
+            }
+        } else {
+            TableCell rect = new TableCell(fillColour, strokeColour, stroke, (float) bounds.getMinX(), pageSize.getMaxY() - (float) bounds.getMaxY(), (float) bounds.getMaxX(), pageSize.getMaxY() - (float) bounds.getMinY());
+            LOG.debug("rectangle added {}", rect);
+            rectangles.add(rect);
+        }
         linePath.reset();
     }
 
@@ -583,8 +608,8 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
      */
     @Override
     public void strokePath() throws IOException {
-        LOG.trace("strokePath: {}", linePath.getBounds());
-        addRectPath(Color.WHITE, getStrokingColor(), getStroke());
+        LOG.debug("strokePath: {}", linePath.getBounds());
+        addRectPath(null, getStrokingColor(), getStroke());
     }
 
     /**
@@ -594,8 +619,8 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
      */
     @Override
     public void fillPath(int windingRule) throws IOException {
-        LOG.trace("fillPath: {}, {}", linePath.getBounds(), getNonStrokingColor());
-        addRectPath(getNonStrokingColor(), Color.WHITE, null);
+        LOG.debug("fillPath: {}, {}", linePath.getBounds(), getNonStrokingColor());
+        addRectPath(getNonStrokingColor(), null, null);
     }
 
     /**
@@ -606,7 +631,7 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
      */
     @Override
     public void fillAndStrokePath(int windingRule) throws IOException {
-        LOG.trace("fillAndStrokePath: {}", linePath.getBounds());
+        LOG.debug("fillAndStrokePath: {}", linePath.getBounds());
         addRectPath(getNonStrokingColor(), getStrokingColor(), getStroke());
     }
 
@@ -914,8 +939,14 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
     protected void processTextPosition(TextPosition text) {
         boolean showChar = true;
         String ch = text.getUnicode();
-        float x = (int) text.getX();
-        float y = (int) (text.getY() - text.getHeight());
+        float x, y;
+        if (isRotated) {
+            y = (int) text.getX();
+            x = (int) (text.getY() - text.getHeight());
+        } else {
+            x = (int) text.getX();
+            y = (int) (text.getY() - text.getHeight());
+        }
         TreeMap<Float, TreeSet<Float>> sameTextChars = textLocationsByChar.computeIfAbsent(ch, k -> new TreeMap<>());
         if (suppressDuplicateOverlappingText) {
             // RDD - Here we compute the value that represents the end of the rendered

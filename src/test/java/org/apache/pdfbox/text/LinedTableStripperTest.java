@@ -38,8 +38,7 @@ public class LinedTableStripperTest {
 
     private void strip(String filename, int pageNo, boolean isRotated, 
             int numRows, int numCols, String first, String middle, String last) throws IOException {
-        LOG.fatal("LOG level: {}", LOG.getLevel());
-        LOG.warn("Processing file {}", filename);
+        LOG.info("Processing file {}", filename);
         Path resourcePath = Paths.get("src", "test", "resources", filename);
         String absolutePath = resourcePath.toFile().getAbsolutePath();
         File file = new File(absolutePath);
@@ -50,7 +49,6 @@ public class LinedTableStripperTest {
             stripper.processPage(page);
             ArrayList<String[]> table = new ArrayList<>(numRows);
             stripper.appendToTable(Color.BLACK, Color.WHITE, null, numCols, table);
-            doc.close();
             assertEquals(numRows, table.size());
             assertEquals(numCols, table.get(0).length);
             assertEquals(first, table.get(0)[0]);

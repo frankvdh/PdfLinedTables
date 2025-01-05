@@ -41,13 +41,11 @@ public class IrregularSinglePageTableTest {
         String absolutePath = resourcePath.toFile().getAbsolutePath();
         File file = new File(absolutePath);
         try (PDDocument doc = Loader.loadPDF(file)) {
-            IrregularSinglePageTable stripper = new IrregularSinglePageTable(file, pageNo - 1, forceRotation, true);
+            IrregularSinglePageTable stripper = new IrregularSinglePageTable(doc, pageNo - 1, forceRotation, true);
             // Find the last line of the heading
             ArrayList<String[]> table = stripper.extractTable(headerColour, dataColour, tableEnd, cols);
             
             assert !table.isEmpty() : "Table not found";
-//            boolean finished = stripper.extractTable(tableBounds, true);
-//            assertTrue(finished);
             for (String[] row: table) {
                 StringBuilder sb = new StringBuilder(100);
                 for (String s : row) {
@@ -58,7 +56,6 @@ public class IrregularSinglePageTableTest {
                 System.out.println(sb.toString());
             }
 
-            doc.close();
             assertEquals(size, table.size());
             String[] firstDataRow = table.get(0);
             assert (firstDataRow.length >= 10);

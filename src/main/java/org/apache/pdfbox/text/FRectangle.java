@@ -14,7 +14,7 @@ import java.awt.geom.Rectangle2D;
  */
 public class FRectangle implements Comparable<FRectangle> {
 
-    protected float minX, minY, maxX, maxY;
+    private float minX, minY, maxX, maxY;
     private Color fillRgb, strokeRgb;
     private Stroke stroke;
 
@@ -30,6 +30,11 @@ public class FRectangle implements Comparable<FRectangle> {
         this.fillRgb = fillColour;
         this.strokeRgb = strokeColour;
         this.stroke = stroke;
+    }
+
+    public FRectangle(Color fillColour, Color strokeColour, Stroke stroke, float x0, float y0, float x1, float y1) {
+        this(x0, y0, x1, y1);
+        setColours(fillColour, strokeColour, stroke);
     }
 
     final public void setColours(Color fillColour, Color strokeColour, Stroke stroke) {
@@ -115,6 +120,26 @@ public class FRectangle implements Comparable<FRectangle> {
         maxX = minX;
         maxY = minY;
         assert minX <= maxX && minY <= maxY;
+    }
+
+    public void setMaxY(float y) {
+        maxY = y;
+        assert minY <= maxY;
+    }
+
+    public void setMinY(float y) {
+        minY = y;
+        assert minY <= maxY;
+    }
+
+    public void setMaxX(float x) {
+        maxX = x;
+        assert minX <= maxX;
+    }
+
+    public void setMinX(float x) {
+        minX = x;
+        assert minX <= maxX;
     }
 
     public boolean containsX(float x) {

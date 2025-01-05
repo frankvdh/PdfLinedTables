@@ -29,13 +29,11 @@ public class TableCell extends FRectangle {
     }
 
     public TableCell(float x0, float y0, float x1, float y1) {
-        super(x0, y0, x1, y1);
-        super.setColours(Color.WHITE, Color.BLACK, null);
+        super(Color.WHITE, Color.BLACK, null, x0, y0, x1, y1);
     }
 
     public TableCell(Color fillColour, Color strokeColour, Stroke stroke, float x0, float y0, float x1, float y1) {
-        super(x0, y0, x1, y1);
-        setColours(fillColour, strokeColour, stroke);
+        super(fillColour, strokeColour, stroke, x0, y0, x1, y1);
     }
 
     public String getText() {

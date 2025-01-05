@@ -1,7 +1,5 @@
 package org.apache.pdfbox.text;
 
-
-
 /*
  * @author <a href="mailto:drifter.frank@gmail.com">Frank van der Hulst</a>
  * 
@@ -15,12 +13,13 @@ import java.util.ArrayList;
 import java.util.regex.Pattern;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.pdfbox.Loader;
+import org.apache.pdfbox.pdmodel.PDDocument;
 import static org.junit.Assert.assertEquals;
 import org.junit.Test;
 
 public class SinglePageTableTest {
 
-    private static final double MARGIN_HEIGHT = 57.0;
     public static final Logger LOG = LogManager.getLogger(SinglePageTable.class);
 
     /**
@@ -46,14 +45,17 @@ public class SinglePageTableTest {
         LOG.info(filename);
         Path resourcePath = Paths.get("src", "test", "resources", filename);
         String absolutePath = resourcePath.toFile().getAbsolutePath();
-        SinglePageTable stripper = new SinglePageTable(new File(absolutePath), pageNo - 1, false, true);
-        ArrayList<String[]> table = stripper.extractTable(headerColour, dataColour, Pattern.compile("\\*\\*\\*"), cols);
-        assertEquals(cols, table.get(0).length);
-        assertEquals(size, table.size());
-        assertEquals(first, table.get(0)[0]);
-        if (middle != null) {
-            assertEquals(middle, table.get(size / 2)[1]);
+        File file = new File(absolutePath);
+        try (PDDocument doc = Loader.loadPDF(file)) {
+            SinglePageTable stripper = new SinglePageTable(doc, pageNo - 1, false, true);
+            ArrayList<String[]> table = stripper.extractTable(headerColour, dataColour, Pattern.compile("\\*\\*\\*"), cols);
+            assertEquals(cols, table.get(0).length);
+            assertEquals(size, table.size());
+            assertEquals(first, table.get(0)[0]);
+            if (middle != null) {
+                assertEquals(middle, table.get(size / 2)[1]);
+            }
+            assertEquals(last, table.get(table.size() - 1)[cols - 1]);
         }
-        assertEquals(last, table.get(table.size()-1)[cols - 1]);
     }
 }

@@ -13,6 +13,7 @@ import java.util.SortedSet;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.regex.Pattern;
+import org.apache.pdfbox.pdmodel.PDDocument;
 
 /**
  * Extract irregular tables
@@ -24,7 +25,7 @@ public class IrregularSinglePageTable extends SinglePageTable {
     /**
      * Constructor for extractor for irregular tables...
      *
-     * @param file File to read
+     * @param doc Document to read
      * @param pageNum Page to read, zero-based
      * @param tableBounds Height of top and horizDivider margins
      * @param tableEnd Regex to identify end of table
@@ -36,8 +37,8 @@ public class IrregularSinglePageTable extends SinglePageTable {
      * @throws IOException If there is an error loading properties from the
      * file.
      */
-    public IrregularSinglePageTable(File file, int pageNum, boolean forceRotation, boolean suppressDuplicates) throws IOException {
-        super(file, pageNum, forceRotation, suppressDuplicates);
+    public IrregularSinglePageTable(PDDocument doc, int pageNum, boolean forceRotation, boolean suppressDuplicates) throws IOException {
+        super(doc, pageNum, forceRotation, suppressDuplicates);
     }
 
     /**
@@ -65,10 +66,10 @@ public class IrregularSinglePageTable extends SinglePageTable {
             SortedSet<Float> vert = new TreeSet<>();
             SortedSet<Float> horiz = new TreeSet<>();
             for (TableCell r: rects) {
-                vert.add(r.minX);
-                if (!vert.contains(r.maxX)) vert.add(r.maxX);
-                if (!horiz.contains(r.minY)) horiz.add(r.minY);
-                if (!horiz.contains(r.maxY)) horiz.add(r.maxY);
+                vert.add(r.getMinX());
+                vert.add(r.getMaxX());
+                horiz.add(r.getMinY());
+                horiz.add(r.getMaxY());
             }
             // so the match fails
         return new ArrayList<String[]>();

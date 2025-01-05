@@ -96,7 +96,7 @@ public class MultiplePageTable extends LinedTableStripper {
         ArrayList<String[]> result = new ArrayList<>();
         do {
             super.processPage(doc.getPage(currPage++));
-        } while (!super.appendToTable(headingColour, dataColour, tableEnd, numColumns, result));
+        } while (currPage < doc.getNumberOfPages() && !super.appendToTable(headingColour, dataColour, tableEnd, numColumns, result));
         return result;
     }
 }

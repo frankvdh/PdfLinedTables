@@ -23,11 +23,10 @@ package org.apache.pdfbox.text;
  * the License.
  */
 import java.awt.Color;
-import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.regex.Pattern;
-import org.apache.pdfbox.Loader;
+import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 
 /**
@@ -55,8 +54,8 @@ public class SinglePageTable extends LinedTableStripper {
      * @throws IOException If there is an error loading properties from the
      * file.
      */
-    public SinglePageTable(File file, int pageNum, boolean forceRotation, boolean suppressDuplicates) throws IOException {
-        this(Loader.loadPDF(file).getPage(pageNum), forceRotation, suppressDuplicates);
+    public SinglePageTable(PDDocument doc, int pageNum, boolean forceRotation, boolean suppressDuplicates) throws IOException {
+        this(doc.getPage(pageNum), forceRotation, suppressDuplicates);
     }
 
     /**
