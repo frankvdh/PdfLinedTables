@@ -1,9 +1,5 @@
 package org.apache.pdfbox.text;
 
-
-
-
-
 /*
  * @author <a href="mailto:drifter.frank@gmail.com">Frank van der Hulst</a>
  * 
@@ -40,10 +36,10 @@ public class MultiplePageTableTest {
         String[] firsts = {"AUCKLAND", "FALEOLO", "TAUPO", "AITUTAKI", "AUCKLAND", "FALEOLO"};
         String[] lasts = {"WHANGANUI", "FUAAMOTU", "WHANGANUI", "VAVAU", "WHENUAPAI", "PAGO PAGO"};
         Pattern tableEnd = Pattern.compile("\\*\\*\\*");
-        MultiplePageTable stripper = new MultiplePageTable(new File(absolutePath), 0, false, true);
+        MultiplePageTable stripper = new MultiplePageTable(new File(absolutePath), 0, 0, true);
 
         for (int i = 0; i < names.length; i++) {
-        ArrayList<String[]> table = stripper.extractTable(Color.BLACK, Color.WHITE, tableEnd, rowSizes[i]);
+            ArrayList<String[]> table = stripper.extractTable(Color.BLACK, Color.WHITE, tableEnd, rowSizes[i]);
             assertEquals(tableSizes[i], table.size());
             LOG.info("Table {}", names[i]);
             for (String[] row : table) {
@@ -55,7 +51,7 @@ public class MultiplePageTableTest {
                 LOG.debug(sb.toString());
             }
             assertEquals(firsts[i], table.get(0)[0]);
-            assertEquals(lasts[i], table.get(table.size()-1)[0]);
+            assertEquals(lasts[i], table.get(table.size() - 1)[0]);
         }
     }
 }

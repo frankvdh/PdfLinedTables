@@ -30,13 +30,13 @@ public class LinedTableStripperTest {
 
     @Test
     public void testExtractTable() throws IOException {
-        strip("OneRow.pdf", 0, false, 
+        strip("OneRow.pdf", 0, 0, 
                 1, 2, "data1", "", "data2");
-       strip("AIP/NZANR-Aerodrome_Coordinates.pdf", 0, true, 
+       strip("AIP/NZANR-Aerodrome_Coordinates.pdf", 0, 0, 
                19, 6, "ALEXANDRA", "2", "1753031.00E");
     }
 
-    private void strip(String filename, int pageNo, boolean isRotated, 
+    private void strip(String filename, int pageNo, int extraRotation, 
             int numRows, int numCols, String first, String middle, String last) throws IOException {
         LOG.info("Processing file {}", filename);
         Path resourcePath = Paths.get("src", "test", "resources", filename);
@@ -45,7 +45,7 @@ public class LinedTableStripperTest {
          try (PDDocument doc = Loader.loadPDF(file)) {
          LOG.fatal(LOG.getLevel());
             PDPage page = doc.getPage(pageNo);
-            LinedTableStripper stripper = new LinedTableStripper(page, isRotated, true);
+            LinedTableStripper stripper = new LinedTableStripper(page, extraRotation, true);
             stripper.processPage(page);
             ArrayList<String[]> table = new ArrayList<>(numRows);
             stripper.appendToTable(Color.BLACK, Color.WHITE, null, numCols, table);

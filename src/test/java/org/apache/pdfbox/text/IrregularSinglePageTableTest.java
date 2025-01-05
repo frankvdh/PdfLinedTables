@@ -31,17 +31,17 @@ public class IrregularSinglePageTableTest {
     @Test
     public void testExtractTable() throws IOException {
         strip("AIP/NZPH_51.1_52.1.pdf", 2,
-                Color.BLACK, Color.WHITE, Pattern.compile("LIGHTING|FACILITIES|SUPPLEMENTARY|MINIMA|FATO/TLOF|Critical\\s*Obstacles"), 10, false,
+                Color.BLACK, Color.WHITE, Pattern.compile("LIGHTING|FACILITIES|SUPPLEMENTARY|MINIMA|FATO/TLOF|Critical\\s*Obstacles"), 10, 0,
                 3, "02\n02", "Gr", "910");
     }
 
-    private void strip(String filename, int pageNo, Color headerColour, Color dataColour, Pattern tableEnd, int cols, boolean forceRotation, int size, String first, String middle, String last) throws IOException {
+    private void strip(String filename, int pageNo, Color headerColour, Color dataColour, Pattern tableEnd, int cols, int extraRotation, int size, String first, String middle, String last) throws IOException {
         LOG.info(filename);
         Path resourcePath = Paths.get("src", "test", "resources", filename);
         String absolutePath = resourcePath.toFile().getAbsolutePath();
         File file = new File(absolutePath);
         try (PDDocument doc = Loader.loadPDF(file)) {
-            IrregularSinglePageTable stripper = new IrregularSinglePageTable(doc, pageNo - 1, forceRotation, true);
+            IrregularSinglePageTable stripper = new IrregularSinglePageTable(doc, pageNo - 1, extraRotation, true);
             // Find the last line of the heading
             ArrayList<String[]> table = stripper.extractTable(headerColour, dataColour, tableEnd, cols);
             
