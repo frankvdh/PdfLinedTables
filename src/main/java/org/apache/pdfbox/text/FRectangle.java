@@ -19,10 +19,10 @@ public class FRectangle implements Comparable<FRectangle> {
     private Stroke stroke;
 
     public FRectangle() {
-        minX = -1;
-        minY = -1;
-        maxX = -1;
-        maxY = -1;
+        minX = Float.NaN;
+        minY = Float.NaN;
+        maxX = Float.NaN;
+        maxY = Float.NaN;
     }
 
     public FRectangle(Color fillColour, Color strokeColour, Stroke stroke) {
@@ -71,11 +71,10 @@ public class FRectangle implements Comparable<FRectangle> {
     }
 
     final public void setMinMax(float x0, float y0, float x1, float y1) {
-        minX = x0;
-        minY = y0;
-        maxX = x1;
-        maxY = y1;
-        assert x0 <= x1 && y0 <= y1;
+        minX = Math.min(x0, x1);
+        minY = Math.min(y0, y1);
+        maxX = Math.max(x0, x1);
+        maxY = Math.max(y0, y1);
     }
 
     public float getWidth() {
@@ -102,16 +101,14 @@ public class FRectangle implements Comparable<FRectangle> {
         return minY;
     }
 
-    public void setY(float min, float max) {
-        assert min <= max;
-        minY = min;
-        maxY = max;
+    public void setY(float y0, float y1) {
+        minY = Math.min(y0, y1);
+        maxY = Math.max(y0, y1);
     }
 
-    public void setX(float min, float max) {
-        assert min <= max;
-        minX = min;
-        maxX = max;
+    public void setX(float x0, float x1) {
+        minX = Math.min(x0, x1);
+        maxX = Math.max(x0, x1);
     }
 
     public void setMin(float x, float y) {
@@ -119,27 +116,26 @@ public class FRectangle implements Comparable<FRectangle> {
         minY = y;
         maxX = minX;
         maxY = minY;
-        assert minX <= maxX && minY <= maxY;
     }
 
     public void setMaxY(float y) {
+        minY = Math.min(y, minY);
         maxY = y;
-        assert minY <= maxY;
     }
 
     public void setMinY(float y) {
         minY = y;
-        assert minY <= maxY;
+        maxY = Math.max(y, maxY);
     }
 
     public void setMaxX(float x) {
         maxX = x;
-        assert minX <= maxX;
+        minX = Math.min(x, minX);
     }
 
     public void setMinX(float x) {
         minX = x;
-        assert minX <= maxX;
+        maxX = Math.max(x, maxX);
     }
 
     public boolean containsX(float x) {
@@ -187,24 +183,18 @@ public class FRectangle implements Comparable<FRectangle> {
         }
     }
 
-    public void rotate90() {
-        float temp = maxX;
-        maxX = maxY;
-        maxY = temp;
-    }
-
     public void add(float x, float y) {
-        if (x < minX || minX < 0) {
-            minX = x;
+        if (x < minX || Float.isNaN(minX)) {
+            setMinX(x);
         }
-        if (x > maxX || maxX < 0) {
-            maxX = x;
+        if (x > maxX || Float.isNaN(maxX)) {
+            setMaxX(x);
         }
-        if (y < minY || minY < 0) {
-            minY = y;
+        if (y < minY || Float.isNaN(minY)) {
+            setMinY(y);
         }
-        if (y > maxY || maxY < 0) {
-            maxY = y;
+        if (y > maxY || Float.isNaN(maxY)) {
+            setMaxY(y);
         }
         assert minX <= maxX && minY <= maxY;
     }
