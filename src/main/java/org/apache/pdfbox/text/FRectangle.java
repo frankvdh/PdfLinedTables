@@ -6,7 +6,7 @@ package org.apache.pdfbox.text;
 
 import java.awt.Color;
 import java.awt.Stroke;
-import java.awt.geom.Rectangle2D;
+import java.awt.geom.Point2D;
 
 /**
  *
@@ -32,8 +32,13 @@ public class FRectangle implements Comparable<FRectangle> {
         this.stroke = stroke;
     }
 
+    public FRectangle(Color fillColour, Color strokeColour, Stroke stroke, Point2D.Float p0, Point2D.Float p1) {
+        this(Math.min(p0.x, p1.x), Math.min(p0.y, p1.y), Math.max(p0.x, p1.x), Math.max(p0.y, p1.y));
+        setColours(fillColour, strokeColour, stroke);
+    }
+
     public FRectangle(Color fillColour, Color strokeColour, Stroke stroke, float x0, float y0, float x1, float y1) {
-        this(x0, y0, x1, y1);
+        this(Math.min(x0, x1), Math.min(y0, y1), Math.max(x0, x1), Math.max(y0, y1));
         setColours(fillColour, strokeColour, stroke);
     }
 
@@ -44,18 +49,21 @@ public class FRectangle implements Comparable<FRectangle> {
     }
 
     public FRectangle(float x, float y) {
-        minX = x;
-        minY = y;
-        maxX = x;
-        maxY = y;
+        this(x, y, x, y);
     }
 
     public FRectangle(float x0, float y0, float x1, float y1) {
-        setMinMax(x0, y0, x1, y1);
+        minX = x0;
+        minY = y0;
+        maxX = x1;
+        maxY = y1;
     }
 
-    public FRectangle(Rectangle2D r) {
-        setMinMax((float) r.getMinX(), (float) r.getMinY(), (float) r.getMaxX(), (float) r.getMaxY());
+    public FRectangle(Point2D.Float p0, Point2D.Float p1) {
+        minX = p0.x;
+        minY = p0.y;
+        maxX = p1.x;
+        maxY = p1.y;
     }
 
     public Color getFillColour() {
@@ -68,13 +76,6 @@ public class FRectangle implements Comparable<FRectangle> {
 
     public Stroke getStroke() {
         return stroke;
-    }
-
-    final public void setMinMax(float x0, float y0, float x1, float y1) {
-        minX = Math.min(x0, x1);
-        minY = Math.min(y0, y1);
-        maxX = Math.max(x0, x1);
-        maxY = Math.max(y0, y1);
     }
 
     public float getWidth() {

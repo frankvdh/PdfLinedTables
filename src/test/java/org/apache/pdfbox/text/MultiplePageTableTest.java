@@ -39,7 +39,7 @@ public class MultiplePageTableTest {
         MultiplePageTable stripper = new MultiplePageTable(new File(absolutePath), 0, 0, true);
 
         for (int i = 0; i < names.length; i++) {
-            ArrayList<String[]> table = stripper.extractTable(Color.BLACK, Color.WHITE, tableEnd, rowSizes[i]);
+            ArrayList<String[]> table = stripper.extractTable(Color.BLACK, Color.WHITE, 0, tableEnd, rowSizes[i]);
             assertEquals(tableSizes[i], table.size());
             LOG.info("Table {}", names[i]);
             for (String[] row : table) {

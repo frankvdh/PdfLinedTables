@@ -5,15 +5,17 @@
 package org.apache.pdfbox.text;
 
 import java.awt.Color;
-import java.awt.Stroke;
 import java.awt.geom.Point2D;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 /**
  *
  * @author frank
  */
-
 public class TableCell extends FRectangle {
+
+    private static final Logger LOG = LogManager.getLogger(TableCell.class);
 
     /**
      * Wrapper to sort Rectangles according to their location on the page. They
@@ -30,10 +32,12 @@ public class TableCell extends FRectangle {
 
     public TableCell(float x0, float y0, float x1, float y1) {
         super(Color.WHITE, Color.BLACK, null, x0, y0, x1, y1);
+        LOG.trace("construct: ({}, {}), ({}, {})", x0, y0, x1, y1);
     }
 
-    public TableCell(Color fillColour, Color strokeColour, Stroke stroke, float x0, float y0, float x1, float y1) {
-        super(fillColour, strokeColour, stroke, x0, y0, x1, y1);
+    public TableCell(FRectangle r, String text) {
+        super(r.getFillColour(), r.getStrokeColour(), r.getStroke(), r.getMinX(), r.getMinY(), r.getMaxX(), r.getMaxY());
+        this.text = text;
     }
 
     public String getText() {

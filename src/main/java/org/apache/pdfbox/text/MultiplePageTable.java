@@ -92,11 +92,16 @@ public class MultiplePageTable extends LinedTableStripper {
      * table.
      * @throws IOException on file error
      */
-    public ArrayList<String[]> extractTable(Color headingColour, Color dataColour, Pattern tableEnd, int numColumns) throws IOException {
+    public ArrayList<String[]> extractTable(Color headingColour, Color dataColour, float startY, Pattern tableEnd, int numColumns) throws IOException {
         ArrayList<String[]> result = new ArrayList<>();
+            float endTable;
         do {
+            LOG.debug("Extracting page {} of {}", currPage, doc.getNumberOfPages());
             super.processPage(doc.getPage(currPage++));
-        } while (currPage <= doc.getNumberOfPages() && !super.appendToTable(headingColour, dataColour, tableEnd, numColumns, result));
+            endTable = findEndTable(startY, mediaBox.getUpperRightY(), tableEnd);
+            super.appendToTable(headingColour, dataColour, startY, endTable, numColumns, result);
+            startY = 0;
+        } while (currPage < doc.getNumberOfPages() && !endTableFound);
         return result;
     }
 }

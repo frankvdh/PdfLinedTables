@@ -58,10 +58,12 @@ public class IrregularSinglePageTable extends SinglePageTable {
      * @throws IOException If there is an error loading properties from the
      * file.
      */
-    public ArrayList<String[]> extractTable(File file, int pageNo, Color headingColour, Color dataColour, Pattern tableEnd,
+    public ArrayList<String[]> extractTable(File file, int pageNo, Color headingColour, Color dataColour, Float startY, Pattern tableEnd,
             char wrapChar, boolean insertSpaces, boolean monoSpace, boolean forceRotation, boolean suppressDuplicates) throws IOException {
             LOG.debug("extract({}, {})", file.getName(), pageNo);
-            SortedSet<TableCell> rects = extractCells(headingColour, dataColour, tableEnd);
+        processPage(getPage());
+        var endY = findEndTable(startY, mediaBox.getUpperRightY(), tableEnd);
+            SortedSet<TableCell> rects = extractCells(headingColour, dataColour, startY, endY);
             // Find all cell edges... 
             SortedSet<Float> vert = new TreeSet<>();
             SortedSet<Float> horiz = new TreeSet<>();
@@ -112,8 +114,8 @@ public class IrregularSinglePageTable extends SinglePageTable {
             }
             TableCell cell = new TableCell(t.getMinX(), t.getMinY(), t.getWidth(), t.getHeight());
             log.finer("cell {}", cell);
-            double left = pageSize.getMinX();
-            double right = pageSize.getMaxX();
+            double left = mediaBox.getMinX();
+            double right = mediaBox.getUpperRightX();
             for (TableCell v : vertLines) {
                 if (v.getMaxY() < cell.getMinY()) {
                     break;
@@ -133,10 +135,10 @@ public class IrregularSinglePageTable extends SinglePageTable {
 
             log.finest("left = {}, right = {}", left, right);
 
-            double top = pageSize.getMaxY();
-            double bottom = pageSize.getMinY();
+            double top = mediaBox.getUpperRightY();
+            double bottom = mediaBox.getMinY();
             for (TableCell h : horizLines) {
-                if (h.getMaxY() < cell.getMinY() && bottom != pageSize.getMinY()) {
+                if (h.getMaxY() < cell.getMinY() && bottom != mediaBox.getMinY()) {
                     break;
                 }
                 if (h.getMinX() >= cell.getMaxX() || h.getMaxX() <= cell.getMinX()) {
@@ -202,7 +204,7 @@ public class IrregularSinglePageTable extends SinglePageTable {
             rows.put(c.getMinY(), 0);
         }
         int numRow = 0;
-        double prev = pageSize.getMaxY();
+        double prev = mediaBox.getUpperRightY();
         for (Iterator<Float> itRow = rows.descendingKeySet().iterator(); itRow.hasNext();) {
             float y = itRow.next();
             if (prev - y < 3) {
@@ -240,7 +242,7 @@ public class IrregularSinglePageTable extends SinglePageTable {
         // output table, based on the X & Y coordinates & width & height of the rectangle
         // Where a rectangle spans multiple rows or columns, it is copied into all the
         // cells it overlaps
-        double prevY = pageSize.getMaxY();
+        double prevY = mediaBox.getUpperRightY();
         for (double y : rows.descendingKeySet()) {
             // Move text rectangles to this row
             TreeSet<FRectangle> rowCells = new TreeSet<>();

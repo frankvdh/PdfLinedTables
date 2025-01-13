@@ -82,7 +82,7 @@ public abstract class PDFStreamEngine
 
     private PDResources resources;
     private PDPage currentPage;
-    private boolean isProcessingPage;
+    protected boolean isProcessingPage;
     private Matrix initialMatrix;
 
     // used to monitor potentially recursive operations.
@@ -128,7 +128,7 @@ public abstract class PDFStreamEngine
      * Provide standard 14 Helvetica font as default if there isn't any font available.  
      * @return the default font
      */
-    private PDFont getDefaultFont()
+    protected PDFont getDefaultFont()
     {
         if (defaultFont == null)
         {
@@ -483,7 +483,7 @@ public abstract class PDFStreamEngine
      * @param contentStream the content stream
      * @throws IOException if there is an exception while processing the stream
      */
-    private void processStream(PDContentStream contentStream) throws IOException
+    protected void processStream(PDContentStream contentStream) throws IOException
     {
         PDResources parent = pushResources(contentStream);
         Deque<PDGraphicsState> savedStack = saveGraphicsStack();
@@ -763,23 +763,6 @@ public abstract class PDFStreamEngine
 
             // process the decoded glyph
             showGlyph(textRenderingMatrix, font, code, w);
-
-            // calculate the combined displacements
-            float tx;
-            float ty;
-            if (font.isVertical())
-            {
-                tx = 0;
-                ty = w.getY() * fontSize + charSpacing + wordSpacing;
-            }
-            else
-            {
-                tx = (w.getX() * fontSize + charSpacing + wordSpacing) * horizontalScaling;
-                ty = 0;
-            }
-
-            // update the text matrix
-            textMatrix.translate(tx, ty);
         }
     }
 

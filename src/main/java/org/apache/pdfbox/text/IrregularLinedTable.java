@@ -51,6 +51,35 @@ public class IrregularLinedTable extends MultiplePageTable {
     }
 
     /**
+     * Extract a table matching the criteria on the given page.
+     *
+     * Finds the table, and removes extraneous lines, rectangles, and text Scans
+     * the rectangles sorted collection for the first rectangle of the heading
+     * colour. Then expands the X,Y limits until it finds the first data colour
+     * rectangle (if any). The bottom of the heading, and therefore the top of
+     * the data, is at this Y coordinate.
+     *
+     * It then extracts text below the heading and between the X,Y bounds, and
+     * scans it for the tableEnd pattern.
+     *
+     * @param headingColour Fill colour of heading, may be null
+     * @param dataColour Fill colour of data, may be null
+     * @param tableEnd Pattern to identify end of table
+     * @return the bounds of the table.
+     *
+     * @throws java.io.IOException for file errors May be overridden if there is
+     * some other mechanism to identify the top of the table.
+     */
+    @Override
+    public ArrayList<String[]> extractTable(Color headingColour, Color dataColour, float startY, Pattern tableEnd, int numColumns) throws IOException {
+        ArrayList<String[]> result = new ArrayList<>();
+        processPage(getPage());
+        var endY = findEndTable(startY, mediaBox.getUpperRightY(), tableEnd);
+        appendToTable(headingColour, dataColour, startY, endY, numColumns, result);
+        return result;
+    }
+
+    /**
      * Append the section of the table matching the criteria on the current
      * page.
      *
@@ -72,8 +101,8 @@ public class IrregularLinedTable extends MultiplePageTable {
      * some other mechanism to identify the top of the table.
      */
     @Override
-    public boolean appendToTable(Color headingColour, Color dataColour, Pattern tableEnd, int numColumns, ArrayList<String[]> table) throws IOException {
-        TreeSet<TableCell> rects = (TreeSet<TableCell>) extractCells(headingColour, dataColour, tableEnd);
+    public boolean appendToTable(Color headingColour, Color dataColour, float startY, float endY, int numColumns, ArrayList<String[]> table) throws IOException {
+        TreeSet<TableCell> rects = (TreeSet<TableCell>) extractCells(headingColour, dataColour, startY, endY);
         if (rects == null || rects.isEmpty()) {
             return false;
         }

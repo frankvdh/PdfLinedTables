@@ -48,9 +48,9 @@ public class SinglePageTableTest {
         File file = new File(absolutePath);
         try (PDDocument doc = Loader.loadPDF(file)) {
             SinglePageTable stripper = new SinglePageTable(doc, pageNo - 1, 0, true);
-            ArrayList<String[]> table = stripper.extractTable(headerColour, dataColour, Pattern.compile("\\*\\*\\*"), cols);
-            assertEquals(cols, table.get(0).length);
+            ArrayList<String[]> table = stripper.extractTable(headerColour, dataColour, 0, Pattern.compile("\\*\\*\\*"), cols);
             assertEquals(size, table.size());
+            assertEquals(cols, table.get(0).length);
             assertEquals(first, table.get(0)[0]);
             if (middle != null) {
                 assertEquals(middle, table.get(size / 2)[1]);

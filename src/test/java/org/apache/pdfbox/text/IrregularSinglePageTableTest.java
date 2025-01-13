@@ -43,7 +43,7 @@ public class IrregularSinglePageTableTest {
         try (PDDocument doc = Loader.loadPDF(file)) {
             IrregularSinglePageTable stripper = new IrregularSinglePageTable(doc, pageNo - 1, extraRotation, true);
             // Find the last line of the heading
-            ArrayList<String[]> table = stripper.extractTable(headerColour, dataColour, tableEnd, cols);
+            ArrayList<String[]> table = stripper.extractTable(headerColour, dataColour, 0, tableEnd, cols);
             
             assert !table.isEmpty() : "Table not found";
             for (String[] row: table) {

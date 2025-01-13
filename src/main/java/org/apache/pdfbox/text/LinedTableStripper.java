@@ -1,76 +1,45 @@
 package org.apache.pdfbox.text;
 
-/**
- * Scan a PDF document page by page, and extract a table delimited by lines of
- * text that match the specified delimiters.
- *
- * @author <a href="mailto:drifter.frank@gmail.com">Frank van der Hulst</a>
- * @version $Revision: 1.00 $
- *
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with this
- * work for additional information regarding copyright ownership. The ASF
- * licenses this file to You under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
- * License for the specific language governing permissions and limitations under
- * the License.
- */
 import java.awt.BasicStroke;
 import static java.awt.BasicStroke.CAP_BUTT;
 import static java.awt.BasicStroke.JOIN_ROUND;
 import java.awt.Color;
 import java.awt.Stroke;
+import java.awt.geom.AffineTransform;
 import java.awt.geom.GeneralPath;
 import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Iterator;
-import java.util.Map;
-import java.util.Map.Entry;
 import java.util.SortedMap;
 import java.util.SortedSet;
 import java.util.TreeMap;
 import java.util.TreeSet;
-import java.util.WeakHashMap;
 import java.util.regex.Pattern;
-import org.apache.fontbox.ttf.TrueTypeFont;
-import org.apache.fontbox.util.BoundingBox;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.pdfbox.contentstream.PDFGraphicsStreamEngine;
-import org.apache.pdfbox.cos.COSDictionary;
 import org.apache.pdfbox.cos.COSName;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.common.PDRectangle;
-import org.apache.pdfbox.pdmodel.font.PDCIDFont;
-import org.apache.pdfbox.pdmodel.font.PDCIDFontType2;
 import org.apache.pdfbox.pdmodel.font.PDFont;
-import org.apache.pdfbox.pdmodel.font.PDFontDescriptor;
-import org.apache.pdfbox.pdmodel.font.PDSimpleFont;
-import org.apache.pdfbox.pdmodel.font.PDTrueTypeFont;
-import org.apache.pdfbox.pdmodel.font.PDType0Font;
-import org.apache.pdfbox.pdmodel.font.PDType3Font;
 import org.apache.pdfbox.pdmodel.font.encoding.GlyphList;
 import org.apache.pdfbox.pdmodel.graphics.color.PDColor;
 import org.apache.pdfbox.pdmodel.graphics.form.PDFormXObject;
 import org.apache.pdfbox.pdmodel.graphics.image.PDImage;
 import org.apache.pdfbox.pdmodel.graphics.state.PDGraphicsState;
+import org.apache.pdfbox.pdmodel.graphics.state.PDTextState;
 import org.apache.pdfbox.pdmodel.interactive.annotation.PDAnnotation;
 import org.apache.pdfbox.util.Matrix;
 import org.apache.pdfbox.util.Vector;
 
 /**
- * Extract data from a line-delimited tables in a PDF document. Data is
- * extracted as a set of rectangular TableCells on a page, each with a
+ * Extract data from line-delimited tables in a PDF document.
+ *
+ * Data is extracted as a set of rectangular TableCells on a page, each with a
  * rectangular boundary and the text within that rectangle. Each table must
  * start on a new page. The table may have a row of table headings above it,
  * identified by their fill colour. If no fill Color is specified, it is assumed
@@ -82,9 +51,7 @@ import org.apache.pdfbox.util.Vector;
 public class LinedTableStripper extends PDFGraphicsStreamEngine {
 
     public static final Logger LOG = LogManager.getLogger(LinedTableStripper.class);
-    private Matrix translateMatrix;
     private static final GlyphList GLYPHLIST;
-    private final Map<COSDictionary, Float> fontHeightMap = new WeakHashMap<>();
 
     static {
         // load additional glyph list for Unicode mapping
@@ -114,26 +81,19 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
      * Rectangle graphics in the table
      *
      */
-    final protected SortedSet<TableCell> rectangles = new TreeSet<>();
-
-    /**
-     * Map of text by character to identify duplicates
-     *
-     */
-    final private TreeMap<String, TreeMap<Float, TreeSet<Float>>> textLocationsByChar = new TreeMap<>();
+    final protected SortedSet<FRectangle> rectangles = new TreeSet<>();
 
     /**
      * Map of text by location for building rectangles
      *
      */
-    final protected SortedMap<Float, SortedMap<Float, String>> textLocationsByYX = new TreeMap<>();
+    final protected SortedMap<Float, SortedMap<Float, Character>> textLocationsByYX = new TreeMap<>();
 
     /**
      * Size of current page
      *
      */
-    final protected FRectangle pageSize = new FRectangle();
-    private Matrix rotationMatrix;
+    final protected PDRectangle mediaBox;
 
     final private int extraRotation;
     final private boolean suppressDuplicateOverlappingText;
@@ -151,42 +111,67 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
         super(page);
         this.extraRotation = extraRotation;
         suppressDuplicateOverlappingText = suppressDuplicates;
+        mediaBox = page.getMediaBox();
+        PDRectangle cropBox = page.getCropBox();
+
+        // flip y-axis
+        flipAT = new Matrix();
+        flipAT.translate(0, page.getBBox().getHeight());
+        flipAT.scale(1, -1);
+
+        // page may be rotated
+        rotateAT = new AffineTransform();
+        int rotation = page.getRotation();
+        if (rotation != 0) {
+            var mediaBox = page.getMediaBox();
+            switch (rotation) {
+                case 90 ->
+                    rotateAT.translate(mediaBox.getHeight(), 0);
+                case 270 ->
+                    rotateAT.translate(0, mediaBox.getWidth());
+                case 180 ->
+                    rotateAT.translate(mediaBox.getWidth(), mediaBox.getHeight());
+                default -> {
+                }
+            }
+            rotateAT.rotate(Math.toRadians(rotation));
+        }
+
+        // cropbox
+        transAT = AffineTransform.getTranslateInstance(-cropBox.getLowerLeftX(), cropBox.getLowerLeftY());
+
     }
 
     private void rotatePage(PDPage page, int rotation) {
         int curr = page.getRotation();
         PDRectangle cropBox = page.getCropBox();
         PDGraphicsState state = getGraphicsState();
-        rotationMatrix = state.getCurrentTransformationMatrix();
-        LOG.debug("Initial page rotation: {}, BBox {}, Matrix {}", page.getRotation(), page.getBBox(), rotationMatrix);
+        var ctm = state.getCurrentTransformationMatrix();
+        LOG.debug("Initial page rotation: {}, BBox {}, Matrix {}", page.getRotation(), mediaBox, ctm);
         switch (rotation) {
             case 90 -> {
                 page.setRotation((curr + 90) % 360);
-                rotationMatrix.translate(0, cropBox.getUpperRightX());
-                rotationMatrix.rotate(-Math.PI / 2);
-                pageSize.setMinMax((int) cropBox.getLowerLeftY(), (int) cropBox.getLowerLeftX(),
-                        (int) cropBox.getUpperRightY() + 1, (int) cropBox.getUpperRightX() + 1);
+                ctm.rotate(Math.PI * 3 / 2);
+                ctm.translate(cropBox.getHeight(), 0);
             }
 
             case 180 -> {
                 page.setRotation((curr + 180) % 360);
-                rotationMatrix.translate(cropBox.getUpperRightX(), cropBox.getUpperRightY());
-                rotationMatrix.rotate(Math.PI);
-                pageSize.setMinMax((int) page.getCropBox().getLowerLeftX(), (int) page.getCropBox().getLowerLeftY(),
-                        (int) page.getCropBox().getUpperRightX() + 1, (int) page.getCropBox().getUpperRightY() + 1);
+                ctm.rotate(Math.PI);
+                ctm.translate(cropBox.getWidth(), cropBox.getHeight());
             }
             case 270 -> {
                 page.setRotation((curr + 270) % 360);
-                rotationMatrix.translate(cropBox.getUpperRightY(), 0);
-                rotationMatrix.rotate(Math.PI / 2);
-                pageSize.setMinMax((int) page.getCropBox().getLowerLeftY(), (int) page.getCropBox().getLowerLeftX(),
-                        (int) page.getCropBox().getUpperRightY() + 1, (int) page.getCropBox().getUpperRightX() + 1);
+                ctm.rotate(Math.PI / 2);
+                ctm.translate(0, cropBox.getWidth());
             }
-            case 0 -> pageSize.setMinMax((int) page.getCropBox().getLowerLeftX(), (int) page.getCropBox().getLowerLeftY(),
-                        (int) page.getCropBox().getUpperRightX() + 1, (int) page.getCropBox().getUpperRightY() + 1);
-            default -> throw new RuntimeException("Rotation must be 0, 90, 180, 270... " + rotation);
+            case 0 -> {
+            }
+            default ->
+                throw new RuntimeException("Rotation must be 0, 90, 180, 270... " + rotation);
         }
-        LOG.debug("Rotated: {}, BBox {}, Matrix {}", page.getRotation(), page.getBBox(), rotationMatrix);
+        mediaBox.transform(ctm);
+        LOG.traceExit("rotatePage: {}", mediaBox);
     }
 
     /**
@@ -200,19 +185,65 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
     final public void processPage(PDPage page) throws IOException {
         super.initPage(page);
         // Some code below depends on the page lower left corner being at (0,0)
-        if (pageSize.getMinX() != 0 || pageSize.getMinY() != 0) {
-            LOG.warn("Page is not zero-based: {}", pageSize);
+        if (mediaBox.getLowerLeftX() != 0 || mediaBox.getLowerLeftY() != 0) {
+            LOG.warn("Page is not zero-based: {}", mediaBox);
         }
-        LOG.debug("Page size: {}", pageSize);
-        LOG.debug("Initial page rotation: {}, BBox {}, Matrix {}", page.getRotation(), page.getBBox(), rotationMatrix);
-        rotatePage(page, extraRotation);
-        LOG.debug("Rotated: {}, BBox {}, Matrix {}", page.getRotation(), pageSize, rotationMatrix);
+        LOG.traceEntry("processPage: size {}, rotation {}, matrix {}", mediaBox, page.getRotation(), page.getBBox(), getGraphicsState().getCurrentTransformationMatrix());
+        rotatePage(page, extraRotation); // Must be done after initPage()
         vertLines.clear();
         horizLines.clear();
         rectangles.clear();
-        textLocationsByChar.clear();
         textLocationsByYX.clear();
-        super.processPage(page);
+
+        if (page.hasContents()) {
+            isProcessingPage = true;
+            processStream(page);
+            isProcessingPage = false;
+
+            // Expand page bounds... some documents have invalid values for right edge of page
+            expandMediaBox(vertLines);
+            expandMediaBox(horizLines);
+            expandMediaBox(rectangles);
+            expandMediaBoxByText();
+        }
+        LOG.traceExit("processPage: {}", mediaBox);
+    }
+
+    private void expandMediaBox(SortedSet<FRectangle> set) {
+        if (set.isEmpty()) {
+            return;
+        }
+        mediaBox.setLowerLeftY(Math.min(mediaBox.getLowerLeftY(), set.getFirst().getMinY()));
+        for (var r : set) {
+            if (r.getMinX() < mediaBox.getLowerLeftY()) {
+                mediaBox.setLowerLeftX(r.getMinX());
+            }
+            if (r.getMaxX() > mediaBox.getUpperRightX()) {
+                mediaBox.setUpperRightX(r.getMaxX());
+            }
+            if (r.getMaxY() > mediaBox.getUpperRightY()) {
+                mediaBox.setUpperRightY(r.getMaxY());
+            }
+        }
+    }
+
+    private void expandMediaBoxByText() {
+        mediaBox.setLowerLeftY(Math.min(mediaBox.getLowerLeftY(), textLocationsByYX.firstKey()));
+        mediaBox.setUpperRightY(Math.max(mediaBox.getUpperRightY(), textLocationsByYX.lastKey()));
+        for (var it = textLocationsByYX.entrySet().iterator(); it.hasNext();) {
+            var entry = it.next();
+            if (entry.getValue().isEmpty()) {
+                it.remove();
+                continue;
+            }
+            var row = entry.getValue();
+            if (row.firstKey() < mediaBox.getLowerLeftX()) {
+                mediaBox.setLowerLeftX(row.firstKey());
+            }
+            if (row.lastKey() > mediaBox.getUpperRightX()) {
+                mediaBox.setUpperRightX(row.lastKey());
+            }
+        }
     }
 
     protected boolean endTableFound;
@@ -238,8 +269,8 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
      * @throws java.io.IOException for file errors May be overridden if there is
      * some other mechanism to identify the top of the table.
      */
-    public boolean appendToTable(Color headingColour, Color dataColour, Pattern tableEnd, int numColumns, ArrayList<String[]> table) throws IOException {
-        TreeSet<TableCell> rects = (TreeSet<TableCell>) extractCells(headingColour, dataColour, tableEnd);
+    public boolean appendToTable(Color headingColour, Color dataColour, float startY, float endY, int numColumns, ArrayList<String[]> table) throws IOException {
+        TreeSet<TableCell> rects = (TreeSet<TableCell>) extractCells(headingColour, dataColour, startY, endY);
         if (rects == null) {
             return false;
         }
@@ -279,35 +310,28 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
      * @throws java.io.IOException for file errors May be overridden if there is
      * some other mechanism to identify the top of the table.
      */
-    protected SortedSet<TableCell> extractCells(Color headingColour, Color dataColour, Pattern tableEnd) throws IOException {
-        FRectangle bounds = findTable(headingColour, dataColour);
-        if (bounds == null) {
+    protected SortedSet<TableCell> extractCells(Color headingColour, Color dataColour, float startY, float endY) throws IOException {
+        var bounds = new FRectangle(mediaBox.getLowerLeftX(), Math.max(mediaBox.getLowerLeftY(), startY), mediaBox.getUpperRightX(), endY);
+        if (!findTable(headingColour, dataColour, bounds)) {
             return null;
         }
-        LOG.debug("Table bounds: {}", bounds);
-        // Now have located top of data in the table, and left & right limits
-
-        // Copy text items that are inside the boundary, down to the end of 
-        // the page, so that the endTable pattern can be searched for
-        buildCharMap(bounds);
-
-        // Find the end of the table
-        bounds.setMaxY(findEndTable(bounds.getMinY(), tableEnd));
+        // Now have located top & bottom of data in the table, and left & right limits
 
         // Now have all table limits identified
         // Extract subsets of the lines, rectangles, and text within these limits.
-        // Keep horizontal lines that extend left of the table
-        SortedSet<FRectangle> horiz = horizLines.subSet(new FRectangle(pageSize.getMinX(), bounds.getMinY() + 1), new FRectangle(pageSize.getMaxX(), pageSize.getMaxY()));
+        // Remove horizontal lines above and below the table, trim the remainder to the horizontal limits of the table
+        SortedSet<FRectangle> horiz = horizLines.subSet(new FRectangle(mediaBox.getLowerLeftX(), bounds.getMinY() + 1), new FRectangle(bounds.getMinX(), bounds.getMaxY() + 1));
         horiz.removeIf((FRectangle h) -> !bounds.intersects(h));
+        horiz.forEach((FRectangle h) -> h.trimX(bounds.getMinX(), bounds.getMaxX()));
+        horiz.removeIf((FRectangle h) -> h.getWidth() == 0);
         if (horiz.isEmpty()) {
             LOG.error("No horizontal lines in table");
             return null;
         }
-        horiz.forEach((FRectangle h) -> h.trimX(bounds.getMinX(), bounds.getMaxX()));
-        // Remove rectangles and text items that are below the last horizontal line of the table... this removes any footnotes
-        bounds.setMaxY(horiz.getLast().getMaxY());
-        // Initially  include vertical lines which extend above the top of the table
-        SortedSet<FRectangle> vert = vertLines.subSet(new FRectangle(bounds.getMinX() - 1, pageSize.getMinY()), new FRectangle(bounds.getMaxX(), bounds.getMaxY()));
+
+        // Remove vertical lines left or right of the table, trim the remainder to the vertical limits of the table
+        // Initially  include lines which extend above the top of the table, because they may extend down into the table
+        SortedSet<FRectangle> vert = vertLines.subSet(new FRectangle(mediaBox.getLowerLeftX(), mediaBox.getLowerLeftY()), new FRectangle(bounds.getMinX(), bounds.getMaxY()));
         vert.forEach((FRectangle v) -> v.trimY(bounds.getMinY(), bounds.getMaxY()));
         vert.removeIf((FRectangle v) -> v.getHeight() == 0 || !bounds.intersects(v));
         if (vert.isEmpty()) {
@@ -315,32 +339,34 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
             return null;
         }
 
-        // Initially  include rectangles which extend above the top of the table
-        SortedSet<TableCell> rects = rectangles.subSet(new TableCell(bounds.getMinX() - 1, pageSize.getMinY()), new TableCell(bounds.getMaxX(), bounds.getMaxY()));
+        // Remove rectangles that are below the last horizontal line of the table... this removes any footnotes
+        // Initially  include rectangles which extend above the top of the table, because they may extend down into the table
+        var rects = rectangles.subSet(new FRectangle(mediaBox.getLowerLeftX(), mediaBox.getLowerLeftY()), new FRectangle(bounds.getMinX(), bounds.getMaxY() + 1));
+        rects.removeIf((FRectangle r) -> !r.intersects(bounds));
         rects.forEach((FRectangle r) -> {
             r.intersect(bounds);
         });
         rects.removeIf((FRectangle r) -> r.getHeight() == 0 || r.getWidth() == 0);
 
         // Remove text that is outside the table
-        textLocationsByYX.entrySet().removeIf((Map.Entry<Float, SortedMap<Float, String>> yEntry) -> !bounds.containsY(yEntry.getKey()));
-        for (Iterator<Map.Entry<Float, SortedMap<Float, String>>> yIt = textLocationsByYX.entrySet().iterator(); yIt.hasNext();) {
-            Map.Entry<Float, SortedMap<Float, String>> yEntry = yIt.next();
-            yEntry.getValue().entrySet().removeIf((Map.Entry<Float, String> xEntry) -> !bounds.containsX(xEntry.getKey()));
+        var textLocs = textLocationsByYX.subMap(bounds.getMinY(), bounds.getMaxY());
+        for (var yIt = textLocs.entrySet().iterator(); yIt.hasNext();) {
+            var yEntry = yIt.next();
+            yEntry.getValue().entrySet().removeIf((var xEntry) -> !bounds.containsX(xEntry.getKey()));
             if (yEntry.getValue().isEmpty()) {
                 yIt.remove();
             }
         }
-        if (textLocationsByYX.isEmpty()) {
+        if (textLocs.isEmpty()) {
             LOG.error("No text in table");
             return null;
         }
-
+        var result = new TreeSet<TableCell>();
         rects.forEach(r -> {
-            r.setText(getRectangleText(r, textLocationsByYX));
+            result.add(new TableCell(r, getRectangleText(r, textLocs)));
         });
-        rects.addAll(buildRectangles(horiz, vert, textLocationsByYX));
-        return rects;
+        result.addAll(buildRectangles(horiz, vert, textLocs));
+        return result;
     }
 
     /**
@@ -355,7 +381,7 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
      * @param vert Set of vertical lines, sorted by Y,X
      * @param rects Set of rectangles
      */
-    protected SortedSet<TableCell> buildRectangles(SortedSet<FRectangle> horiz, SortedSet<FRectangle> vert, SortedMap<Float, SortedMap<Float, String>> tableContents) {
+    protected SortedSet<TableCell> buildRectangles(SortedSet<FRectangle> horiz, SortedSet<FRectangle> vert, SortedMap<Float, SortedMap<Float, Character>> tableContents) {
         if (horiz.isEmpty() || vert.isEmpty()) {
             LOG.warn("Horizontal lines = {}, Vertical lines = {} so no table", horiz.size(), vert.size());
         }
@@ -372,7 +398,7 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
                     h1 = itH.next();
                     itH.remove();
                     if (h1.intersects(v0)) {
-                        v0.trimY(h1.getMinY(), pageSize.getMaxY());
+                        v0.trimY(h1.getMinY(), mediaBox.getUpperRightY());
                         if (v0.getHeight() > 1) {
                             vert.add(v0);
                         }
@@ -388,7 +414,7 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
                     //unused bit and try next vertical line
                     if (h1 != null) {
                         horiz.add(h1);
-                        v0.trimY(h1.getMinY(), pageSize.getMaxY());
+                        v0.trimY(h1.getMinY(), mediaBox.getUpperRightY());
                         if (v0.getHeight() > 1) {
                             vert.add(v0);
                         }
@@ -406,12 +432,11 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
                     }
 
                     // Found right edge
-                    LOG.trace("Cell: ({}, {}), ({}, {})", v0.getMinX(), top, v1.getMinX(), bottom);
                     TableCell r = new TableCell(v0.getMinX(), top, v1.getMinX(), bottom);
                     r.setText(getRectangleText(r, tableContents));
                     rects.add(r);
                     assert (h1 != null);
-                    h1.trimX(v1.getMaxX(), pageSize.getMaxX());
+                    h1.trimX(v1.getMaxX(), mediaBox.getUpperRightX());
                     if (h1.getWidth() > 1) {
                         horiz.add(h1);
                     }
@@ -429,11 +454,11 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
      * @param tableContents
      * @return
      */
-    protected String getRectangleText(FRectangle rect, SortedMap<Float, SortedMap<Float, String>> tableContents) {
+    protected String getRectangleText(FRectangle rect, SortedMap<Float, SortedMap<Float, Character>> tableContents) {
         StringBuilder sb = new StringBuilder(100);
-        SortedMap<Float, SortedMap<Float, String>> yRange = tableContents.tailMap(rect.getMinY()).headMap(rect.getMaxY());
+        var yRange = tableContents.tailMap(rect.getMinY()).headMap(rect.getMaxY());
         yRange.values().stream().map(row -> row.tailMap(rect.getMinX()).headMap(rect.getMaxX())).map(xRange -> {
-            xRange.values().forEach((String s) -> sb.append(s));
+            xRange.values().forEach((Character ch) -> sb.append(ch));
             return xRange;
         }).forEachOrdered(_item -> {
             sb.append('\n');
@@ -450,41 +475,37 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
      * the table
      * @return Y coordinate of bottom-most line
      */
-    protected float findEndTable(float tableTop, Pattern tableEnd) {
+    protected float findEndTable(float startY, float endY, Pattern tableEnd) {
+        LOG.traceEntry("findEndTable \"{}\"", (tableEnd == null ? "null" : tableEnd.toString()));
         // Scan through the text for the endTable delimiter text
         endTableFound = false;
         if (tableEnd != null) {
-            for (Entry<Float, SortedMap<Float, String>> r : textLocationsByYX.entrySet()) {
-                float y = r.getKey();
-                if (y < tableTop) {
-                    continue;
-                }
+            var rows = textLocationsByYX.subMap(startY, endY);
+            for (var c : rows.entrySet()) {
+                float y = c.getKey();
                 // Concatenate all of the text onto entire lines
-                StringBuilder line = new StringBuilder(r.getValue().values().size());
-                r.getValue().values().forEach(text -> {
+                StringBuilder line = new StringBuilder(c.getValue().values().size());
+                c.getValue().values().forEach(text -> {
                     line.append(text);
                 });
-                if (tableEnd.matcher(line).find()) {
+                if (tableEnd.matcher(line.toString()).find()) {
                     endTableFound = true;
-                    // end of table marker may be the first line of the table on a given page
-                    LOG.trace("End of Table \"{}\" found at {}", tableEnd.toString(), y);
+                    LOG.traceExit("findEndTable: {}", y);
                     return y;
                 }
             }
-
             LOG.warn("Table end delimiter \"{}\" not found", tableEnd.toString());
-            return pageSize.getMaxY();
         }
         if (!horizLines.isEmpty()) {
             // Assume that the last horizontal line on the page is the bottom of the table
             float tableBottom = horizLines.last().getMaxY();
-            if (tableBottom <= tableTop) {
+            if (tableBottom <= startY) {
                 LOG.warn("No Table end delimiter specified and no horizontal line below heading");
             }
             return tableBottom;
-        }
+         }
         LOG.warn("No Table end delimiter specified and no horizontal line found");
-        return pageSize.getMaxY();
+        return Float.NaN;
     }
 
     /**
@@ -503,9 +524,8 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
      * @throws java.io.IOException for file errors May be overridden if there is
      * some other mechanism to identify the top of the table.
      */
-    protected FRectangle findTable(Color headingColour, Color dataColour) throws IOException {
+    protected boolean findTable(Color headingColour, Color dataColour, FRectangle bounds) throws IOException {
         LOG.debug("findTable(\"{}\", \"{}\")", headingColour, dataColour);
-        FRectangle bounds = new FRectangle(Float.NaN, pageSize.getMinY(), Float.NaN, pageSize.getMaxY());
         boolean headingFound = false;
         if (headingColour == null) {
             // TODO
@@ -530,14 +550,14 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
                 if (r.getMinX() < bounds.getMinX() || Float.isNaN(bounds.getMinX())) {
                     bounds.setMinX(r.getMinX());
                 }
-                if (r.getMaxY() > bounds.getMinY()) {
+                if (r.getMaxY() > bounds.getMinY() || Float.isNaN(bounds.getMinY())) {
                     bounds.setMinY(r.getMaxY());
                 }
                 headingFound = true;
             } else {
 //                if (fillColour == null) {
-                    // Ignore uncoloured rectangles which overlay the heading
-                    // These are lines to outline the heading cells
+                // Ignore uncoloured rectangles which overlay the heading
+                // These are lines to outline the heading cells
 //                    continue;
 //                }
                 if (headingFound) {
@@ -549,31 +569,10 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
         }
 
         if (Float.isNaN(bounds.getMinX())) {
-            return null;
+            return false;
         }
-        return bounds;
-    }
-
-    /**
-     * Build the X within Y map from the textLocationsByChar map
-     *
-     * @param bounds
-     */
-    protected void buildCharMap(FRectangle bounds) {
-        // TODO Handle page rotation
-        textLocationsByChar.entrySet().forEach(charEntry -> {
-            String ch = charEntry.getKey();
-            SortedMap<Float, TreeSet<Float>> yMap = charEntry.getValue().subMap(bounds.getMinY(), bounds.getMaxY());
-            yMap.entrySet().forEach(yEntry -> {
-                SortedSet<Float> xMap = yEntry.getValue().subSet(bounds.getMinX(), bounds.getMaxX());
-                if (!(xMap.isEmpty())) {
-                    SortedMap<Float, String> sortedRow = textLocationsByYX.computeIfAbsent(yEntry.getKey(), k -> new TreeMap<>());
-                    xMap.forEach(x -> {
-                        sortedRow.put(x, ch);
-                    });
-                }
-            });
-        });
+        LOG.traceExit("findTable: {}", bounds);
+        return true;
     }
 
     /**
@@ -586,7 +585,7 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
      */
     @Override
     public void appendRectangle(Point2D p0, Point2D p1, Point2D p2, Point2D p3) {
-        LOG.debug("appendRectangle {}, {}, {}, {}", p0, p1, p2, p3);
+        LOG.traceEntry("appendRectangle {}, {}, {}, {}", p0, p1, p2, p3);
         linePath.moveTo(p0.getX(), p0.getY());
         linePath.lineTo(p1.getX(), p1.getY());
         linePath.lineTo(p2.getX(), p2.getY());
@@ -598,42 +597,38 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
      * Add a line/rectangle to the appropriate set -- horizontal or vertical
      * lines, or rectangles
      *
-     * NB: This inverts the Y coordinate so that it is the same as the text
-     * coordinate system
+     * Coordinates are in the display coordinate system
      *
      * @param fillColour
      * @param strokeColour
      * @param stroke
      */
     private void addRectPath(Color fillColour, Color strokeColour, Stroke stroke) {
-        LOG.trace("addRectPath: {}", linePath.getBounds());
+        LOG.traceEntry("addRectPath: {}", linePath.getBounds());
         Rectangle2D bounds = linePath.getBounds2D();
         // Ignore cells too small for text
         if (bounds.getHeight() < 5 && bounds.getWidth() < 5) {
             linePath.reset();
             return;
         }
-        Point2D.Float p0 = new Point2D.Float((float)bounds.getMinX(), (float)bounds.getMinY());
-        Point2D.Float p1 = new Point2D.Float((float)bounds.getMaxX(), (float)bounds.getMaxY());
-        rotationMatrix.transform(p0);
-        rotationMatrix.transform(p1);
-//        pageSize.add((float)bounds.getMinX(), (float) bounds.getMinY());
-//        pageSize.add((float)bounds.getMaxX(), (float) bounds.getMaxY());
+        // Add a rectangle to the appropriate sorted list (horizLines, vertLines, boxes).
+        Point2D.Float p0 = new Point2D.Float((float) bounds.getMinX(), (float) bounds.getMinY());
+        Point2D.Float p1 = new Point2D.Float((float) bounds.getMaxX(), (float) bounds.getMaxY());
+        // Graphics Y coordinates are upside-down wrt Text coordinates
+        flipAT.transform(p0);
+        flipAT.transform(p1);
         if (bounds.getHeight() < 3 || bounds.getWidth() < 3) {
-            FRectangle line = new FRectangle(null, strokeColour, stroke, (float)p0.getX(), (float)p0.getY(), (float) p1.getX(), (float) p1.getY());
-
-            // Add a rectangle to the appropriate sorted list (horizLines, vertLines, boxes).
-            // 2.5 is a kludge -- NZKM.pdf has rectangles 2.96 wide that are not vertical lines
+            FRectangle line = new FRectangle(null, strokeColour, stroke, p0, p1);
+            // 3 is a kludge -- NZKM.pdf has rectangles 2.96 wide that are not vertical lines
             if (line.getHeight() < 3) {
                 horizLines.add(line);
             } else {
                 vertLines.add(line);
             }
-            LOG.debug("line added {}", line);
+            LOG.trace("line added {}", line);
         } else {
-            TableCell rect = new TableCell(fillColour, strokeColour, stroke, (float) p0.getX(), (float) p0.getY(), (float) p1.getX(), (float) p1.getY());
-            LOG.debug("rectangle added {}", rect);
-            rect.setText(bounds.toString());
+            FRectangle rect = new FRectangle(fillColour, strokeColour, stroke, p0, p1);
+            LOG.trace("rectangle added {}", rect);
             rectangles.add(rect);
         }
         linePath.reset();
@@ -646,7 +641,7 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
      */
     @Override
     public void strokePath() throws IOException {
-        LOG.debug("strokePath: {}", linePath.getBounds());
+        LOG.traceEntry("strokePath: {}", linePath.getBounds());
         addRectPath(null, getStrokingColor(), getStroke());
     }
 
@@ -657,7 +652,7 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
      */
     @Override
     public void fillPath(int windingRule) throws IOException {
-        LOG.trace("fillPath: {}, {}", linePath.getBounds(), getNonStrokingColor());
+        LOG.traceEntry("fillPath: {}, {}", linePath.getBounds(), getNonStrokingColor());
         addRectPath(getNonStrokingColor(), null, null);
     }
 
@@ -669,7 +664,7 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
      */
     @Override
     public void fillAndStrokePath(int windingRule) throws IOException {
-        LOG.debug("fillAndStrokePath: {}", linePath.getBounds());
+        LOG.traceEntry("fillAndStrokePath: {}", linePath.getBounds());
         addRectPath(getNonStrokingColor(), getStrokingColor(), getStroke());
     }
 
@@ -722,13 +717,13 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
 
     @Override
     public void moveTo(float x, float y) {
-        LOG.trace("moveTo {}, {}", x, y);
+        LOG.traceEntry("moveTo {}, {}", x, y);
         linePath.moveTo(x, y);
     }
 
     @Override
     public void lineTo(float x, float y) {
-        LOG.trace("lineTo {}, {}", x, y);
+        LOG.traceEntry("lineTo {}, {}", x, y);
         linePath.lineTo(x, y);
     }
 
@@ -748,13 +743,13 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
 
     @Override
     public void endPath() {
-        LOG.trace("endPath: {}", linePath.getBounds());
+        LOG.traceEntry("endPath: {}", linePath.getBounds());
         linePath.reset();
     }
 
     @Override
     public void drawImage(PDImage pdImage) throws IOException {
-        LOG.warn("Image ignored {} by {} ", pdImage.getWidth(), pdImage.getHeight());
+        LOG.warn("{} Image {} by {} at {}, {} ignored", pdImage.getSuffix(), pdImage.getWidth(), pdImage.getHeight(), pdImage.getImage().getMinX(), pdImage.getImage().getMinY());
     }
 
     @Override
@@ -773,241 +768,132 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
     }
 
     /**
-     * Build textPosition Overridden from PDFStreamEngine.
+     * Process text from the PDF Stream. You should override this method if you
+     * want to perform an action when encoded text is being processed.
+     *
+     * @param string the encoded text
+     * @throws IOException if there is an error processing the string
      */
     @Override
-    protected void showGlyph(Matrix textRenderingMatrix, PDFont font, int code, Vector displacement)
-            throws IOException {
-        LOG.debug("showGlyph {}: disp = {}, trans = {}, {}", font.toUnicode(code), displacement.toString(), textRenderingMatrix.getTranslateX(), textRenderingMatrix.getTranslateY());
-        /**
-         * Glyph bounding boxes.
-         */
-
-        //
-        // legacy calculations from PDFTextStripper which were previously in PDFStreamEngine
-        //
-        //  DO NOT USE THIS CODE UNLESS YOU ARE WORKING WITH PDFTextStripper.
-        //  THIS CODE IS DELIBERATELY INCORRECT
-        //
-        float displacementX = displacement.getX();
-        // the sorting algorithm is based on the width of the character. As the displacement
-        // for vertical characters doesn't provide any suitable value for it, we have to 
-        // calculate our own
-        if (font.isVertical()) {
-            displacementX = font.getWidth(code) / 1000;
-            // there may be an additional scaling factor for true type fonts
-            TrueTypeFont ttf = null;
-            switch (font) {
-                case PDTrueTypeFont pDTrueTypeFont -> ttf = pDTrueTypeFont.getTrueTypeFont();
-                case PDType0Font pDType0Font -> {
-                    PDCIDFont cidFont = pDType0Font.getDescendantFont();
-                    if (cidFont instanceof PDCIDFontType2 pDCIDFontType2) {
-                        ttf = pDCIDFontType2.getTrueTypeFont();
-                    }
-                }
-                default -> {
-                }
-            }
-
-            if (ttf != null && ttf.getUnitsPerEm() != 1000) {
-                displacementX *= 1000f / ttf.getUnitsPerEm();
-            }
-        }
-
-        //
-        // legacy calculations which were previously in PDFStreamEngine
-        //
-        //  DO NOT USE THIS CODE UNLESS YOU ARE WORKING WITH PDFTextStripper.
-        //  THIS CODE IS DELIBERATELY INCORRECT
-        //
-        // (modified) combined displacement, this is calculated *without* taking the character
-        // spacing and word spacing into account, due to legacy code in TextStripper
+    protected void showText(byte[] string) throws IOException {
         PDGraphicsState state = getGraphicsState();
-        float fontSize = state.getTextState().getFontSize();
-        float horizontalScaling = state.getTextState().getHorizontalScaling() / 100f;
-        float tx = displacementX * fontSize * horizontalScaling;
-        float ty = displacement.getY() * fontSize;
+        PDTextState textState = state.getTextState();
 
-        // (modified) combined displacement matrix
-        Matrix td = Matrix.getTranslateInstance(tx, ty);
-
-        // (modified) text rendering matrix
-        Matrix textMatrix = getTextMatrix();
-        Matrix nextTextRenderingMatrix = td.multiply(textMatrix).multiply(rotationMatrix); // text space -> device space
-        float nextX = nextTextRenderingMatrix.getTranslateX();
-        float nextY = nextTextRenderingMatrix.getTranslateY();
-
-        // (modified) width and height calculations
-        float dxDisplay = nextX - textRenderingMatrix.getTranslateX();
-        Float fontHeight = fontHeightMap.get(font.getCOSObject());
-        if (fontHeight == null) {
-            fontHeight = computeFontHeight(font);
-            fontHeightMap.put(font.getCOSObject(), fontHeight);
-        }
-        float dyDisplay = fontHeight * textRenderingMatrix.getScalingFactorY();
-
-        //
-        // start of the original method
-        //
-        // Note on variable names. There are three different units being used in this code.
-        // Character sizes are given in glyph units, text locations are initially given in text
-        // units, and we want to save the data in display units. The variable names should end with
-        // Text or Disp to represent if the values are in text or disp units (no glyph units are
-        // saved).
-        float glyphSpaceToTextSpaceFactor = 1 / 1000f;
-        if (font instanceof PDType3Font) {
-            glyphSpaceToTextSpaceFactor = font.getFontMatrix().getScaleX();
+        // get the current font
+        PDFont font = textState.getFont();
+        if (font == null) {
+            LOG.warn("No current font, will use default");
+            font = getDefaultFont();
         }
 
-        float spaceWidthText = 0;
-        try {
-            // to avoid crash as described in PDFBOX-614, see what the space displacement should be
-            spaceWidthText = font.getSpaceWidth() * glyphSpaceToTextSpaceFactor;
-        } catch (Exception exception) {
-            LOG.warn(exception, exception);
-        }
+        float fontSize = textState.getFontSize();
+        float horizontalScaling = textState.getHorizontalScaling() / 100f;
+        float charSpacing = textState.getCharacterSpacing();
+        float wordSpacing = textState.getWordSpacing();
 
-        if (Float.compare(spaceWidthText, 0) == 0) {
-            spaceWidthText = font.getAverageFontWidth() * glyphSpaceToTextSpaceFactor;
-            // the average space width appears to be higher than necessary so make it smaller
-            spaceWidthText *= .80f;
-        }
-        if (Float.compare(spaceWidthText, 0) == 0) {
-            spaceWidthText = 1.0f; // if could not find font, use a generic value
-        }
+        // put the text state parameters into matrix form
+        Matrix parameters = new Matrix(
+                fontSize * horizontalScaling, 0, // 0
+                0, fontSize, // 0
+                0, textState.getRise());         // 1
 
-        // the space width has to be transformed into display units
-        float spaceWidthDisplay = spaceWidthText * textRenderingMatrix.getScalingFactorX();
+        Matrix textMatrix = getGraphicsState().getTextMatrix();
+        // read the stream until it is empty
+        InputStream in = new ByteArrayInputStream(string);
+        while (in.available() > 0) {
+            // decode a character
+            int before = in.available();
+            int code = font.readCode(in);
+            int codeLength = before - in.available();
 
-        // use our additional glyph list for Unicode mapping
-        String unicode = font.toUnicode(code, GLYPHLIST);
+            // text rendering matrix (text space -> device space)
+//            Matrix textRenderingMatrix = textMatrix.multiply(ctm);
+            // get glyph's position vector if this is vertical text
+            // changes to vertical text should be tested with PDFBOX-2294 and PDFBOX-1422
+            if (font.isVertical()) {
+                // position vector, in text space
+                Vector v = font.getPositionVector(code);
 
-        // when there is no Unicode mapping available, Acrobat simply coerces the character code
-        // into Unicode, so we do the same. Subclasses of PDFStreamEngine don't necessarily want
-        // this, which is why we leave it until this point in PDFTextStreamEngine.
-        if (unicode == null) {
-            if (font instanceof PDSimpleFont) {
-                char c = (char) code;
-                unicode = String.valueOf(c);
+                // apply the position vector to the horizontal origin to get the vertical origin
+                textMatrix.translate(v);
+            }
+            // text rendering matrix (text space -> device space)
+            Matrix ctm = state.getCurrentTransformationMatrix();
+            Matrix textRenderingMatrix = parameters.multiply(textMatrix).multiply(ctm).multiply(flipAT);
+
+            // use our additional glyph list for Unicode mapping
+            String text = font.toUnicode(code, GLYPHLIST);
+            // when there is no Unicode mapping available, coerce the character code into Unicode
+            char unicode = text == null ? (char) code : text.charAt(0);
+            // get glyph's horizontal displacement, in text space
+            float width = codeLength == 1 && (unicode == 0x20 || unicode == 0xa0) ? wordSpacing
+                    : font.getWidth(code) * fontSize / 1000 + charSpacing;
+
+            // get glyph's horizontal displacement, in text space
+            float w = width * horizontalScaling;
+            // process the decoded char
+            Point2D.Float p = new Point2D.Float(textRenderingMatrix.getTranslateX(), textRenderingMatrix.getTranslateY());
+            LOG.trace("Width of '{}' @ {} = {}, {}", unicode, p, width, w);
+            ctm.transform(p);
+            processTextPosition(unicode, p, w);
+
+            // update the text matrix
+            if (font.isVertical()) {
+                textMatrix.translate(0, width);
             } else {
-                // Acrobat doesn't seem to coerce composite font's character codes, instead it
-                // skips them. See the "allah2.pdf" TestTextStripper file.
-                return;
+                textMatrix.translate(w, 0);
             }
         }
-
-        // adjust for cropbox if needed
-        Matrix translatedTextRenderingMatrix;
-        if (translateMatrix == null) {
-            translatedTextRenderingMatrix = textRenderingMatrix;
-        } else {
-            translatedTextRenderingMatrix = Matrix.concatenate(translateMatrix, textRenderingMatrix);
-            nextX -= pageSize.getMinX();
-            nextY -= pageSize.getMinY();
-        }
-
-        processTextPosition(new TextPosition(0, pageSize.getWidth(),
-                pageSize.getHeight(), translatedTextRenderingMatrix, nextX, nextY,
-                Math.abs(dyDisplay), dxDisplay,
-                Math.abs(spaceWidthDisplay), unicode, new int[]{code}, font, fontSize,
-                (int) (fontSize * textMatrix.getScalingFactorX())));
     }
 
     /**
-     * Overridden from PDFStreamEngine.
-     */
-    @Override
-    protected void showFontGlyph(Matrix textRenderingMatrix, PDFont font, int code, Vector displacement)
-            throws IOException {
-    }
-
-    /**
-     * Compute the font height. Override this if you want to use own
-     * calculations.
+     * Add the char to the list of characters on a page. It takes care of
+     * overlapping text.
      *
-     * @param font the font.
-     * @return the font height.
-     *
-     * @throws IOException if there is an error while getting the font bounding
-     * box.
+     * @param ch The text to process.
      */
-    private float computeFontHeight(PDFont font) throws IOException {
-        BoundingBox bbox = font.getBoundingBox();
-        if (bbox.getLowerLeftY() < Short.MIN_VALUE) {
-            // PDFBOX-2158 and PDFBOX-3130
-            // files by Salmat eSolutions / ClibPDF Library
-            bbox.setLowerLeftY(-(bbox.getLowerLeftY() + 65536));
-        }
-        // 1/2 the bbox is used as the height todo: why?
-        float glyphHeight = bbox.getHeight() / 2;
-
-        // sometimes the bbox has very high values, but CapHeight is OK
-        PDFontDescriptor fontDescriptor = font.getFontDescriptor();
-        if (fontDescriptor != null) {
-            float capHeight = fontDescriptor.getCapHeight();
-            if (Float.compare(capHeight, 0) != 0
-                    && (capHeight < glyphHeight || Float.compare(glyphHeight, 0) == 0)) {
-                glyphHeight = capHeight;
-            }
-            // PDFBOX-3464, PDFBOX-4480, PDFBOX-4553:
-            // sometimes even CapHeight has very high value, but Ascent and Descent are ok
-            float ascent = fontDescriptor.getAscent();
-            float descent = fontDescriptor.getDescent();
-            if (capHeight > ascent && ascent > 0 && descent < 0
-                    && ((ascent - descent) / 2 < glyphHeight || Float.compare(glyphHeight, 0) == 0)) {
-                glyphHeight = (ascent - descent) / 2;
-            }
-        }
-
-        // transformPoint from glyph space -> text space
-        float height;
-        if (font instanceof PDType3Font) {
-            height = font.getFontMatrix().transformPoint(0, glyphHeight).y;
-        } else {
-            height = glyphHeight / 1000;
-        }
-
-        return height;
-    }
-
-    /**
-     * This will process a TextPosition object and add the text to the list of
-     * characters on a page. It takes care of overlapping text.
-     *
-     * @param text The text to process.
-     */
-    protected void processTextPosition(TextPosition text) {
-        boolean showChar = true;
-        String ch = text.getUnicode();
-        Point2D p = new Point2D.Float(text.getX(), text.getY());
-        rotationMatrix.transform(p);
-        TreeMap<Float, TreeSet<Float>> sameTextChars = textLocationsByChar.computeIfAbsent(ch, k -> new TreeMap<>());
+    protected void processTextPosition(char ch, Point2D.Float p, float charWidth) {
+        LOG.traceEntry("processtextPosition {}: p = {}, width {}", ch, p, charWidth);
+        SortedMap<Float, Character> sortedRow = textLocationsByYX.computeIfAbsent(p.y, k -> new TreeMap<>());
         if (suppressDuplicateOverlappingText) {
-            // RDD - Here we compute the value that represents the end of the rendered
-            // text. This value is used to determine whether subsequent text rendered
-            // on the same line overwrites the current text.
-            //
-            // We subtract any positive padding to handle cases where extreme amounts
-            // of padding are applied, then backed off (not sure why this is done, but there
-            // are cases where the padding is on the order of 10x the character width, and
-            // the TJ just backs up to compensate after each character). Also, we subtract
-            // an amount to allow for kerning (a percentage of the width of the last
-            // character).
-            float tolerance = text.getWidth() / ch.length() / 3.0f;
-
-            SortedMap<Float, TreeSet<Float>> yMatches = sameTextChars.subMap((float) p.getY() - tolerance, (float) p.getY() + tolerance);
-            for (TreeSet<Float> yMatch : yMatches.values()) {
-                SortedSet<Float> xMatches = yMatch.subSet((float) p.getX() - tolerance, (float) p.getX() + tolerance);
-                if (!xMatches.isEmpty()) {
-                    showChar = false;
-                    break;
+            float tolerance = charWidth / 3.0f;
+            var yMatches = textLocationsByYX.subMap(p.y - tolerance, p.y + tolerance);
+            for (var yMatch : yMatches.values()) {
+                var xMatches = yMatch.subMap(p.x - tolerance, p.x + tolerance).values();
+                if (xMatches.contains(ch)) {
+                    return;
                 }
             }
         }
-        if (showChar) {
-            TreeSet<Float> xSet = sameTextChars.computeIfAbsent((float) p.getY(), k -> new TreeSet<>());
-            xSet.add((float) p.getX());
-        }
+        sortedRow.put(p.x, ch);
     }
     // NOTE: there are more methods in PDFStreamEngine which can be overridden here too.
+    private Matrix flipAT;
+    private AffineTransform rotateAT;
+    private AffineTransform transAT;
+
+    @Override
+    protected void showGlyph(Matrix textRenderingMatrix, PDFont font, int code, Vector displacement) throws IOException {
+        super.showGlyph(textRenderingMatrix, font, code, displacement);
+
+        AffineTransform at = textRenderingMatrix.createAffineTransform();
+        at.concatenate(font.getFontMatrix().createAffineTransform());
+
+        // draw
+        // use our additional glyph list for Unicode mapping
+        String text = font.toUnicode(code, GLYPHLIST);
+        // when there is no Unicode mapping available, coerce the character code into Unicode
+        char unicode = text == null ? (char) code : text.charAt(0);
+        // get glyph's horizontal displacement, in text space
+        float width = font.getWidth(code) / 1000;
+        //codeLength == 1 && (unicode == 0x20 || unicode == 0xa0) ? wordSpacing
+        //: font.getWidth(code) / 1000 + charSpacing;
+
+        // get glyph's horizontal displacement, in text space
+        float w = width;// * horizontalScaling;
+        // process the decoded char
+        Point2D.Float p = new Point2D.Float((float) at.getTranslateX(), (float) at.getTranslateY());
+        LOG.trace("Width of '{}' @ {} = {}, {}", unicode, p, width, w);
+        processTextPosition(unicode, p, w);
+    }
 }
