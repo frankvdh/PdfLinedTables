@@ -229,11 +229,11 @@ public class FRectangle implements Comparable<FRectangle> {
         if (this == other) {
             return 0;
         }
-        // First compare the tops of the cells... sort ascending Y values
-        if (this.minY > other.minY) {
+        // First compare the tops of the cells... sort descending Y values
+        if (this.minY < other.minY) {
             return 1;
         }
-        if (this.minY < other.minY) {
+        if (this.minY > other.minY) {
             return -1;
         }
         // Same top, compare left edges, sort ascending
