@@ -84,8 +84,8 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
     final protected SortedSet<FRectangle> rectangles = new TreeSet<>();
 
     /**
-     * Map of text by X within Y location for building rectangles
-     * in reverse order so that top of page is first
+     * Map of text by X within Y location for building rectangles in reverse
+     * order so that top of page is first
      *
      */
     final protected SortedMap<Float, SortedMap<Float, Character>> textLocationsByYX = new TreeMap<>(Collections.reverseOrder());
@@ -250,15 +250,15 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
      * @param headingColour Fill colour of heading, may be null
      * @param dataColour Fill colour of data, may be null
      * @param startY Y coordinate of top of table relative to top of mediaBox
-     * @param endY   Y coordinate of bottom of table, as returned by findEndTable
+     * @param endY Y coordinate of bottom of table, as returned by findEndTable
      * @return the bounds of the table.
      *
      * @throws java.io.IOException for file errors May be overridden if there is
      * some other mechanism to identify the top of the table.
      */
     protected SortedSet<TableCell> extractCells(Color headingColour, Color dataColour, float startY, float endY) throws IOException {
-        assert startY >= 0: "startY < 0";
-        var bounds = new FRectangle(Float.NaN, endY, Float.NaN, mediaBox.getUpperRightY()-startY);
+        assert startY >= 0 : "startY < 0";
+        var bounds = new FRectangle(Float.NaN, endY, Float.NaN, mediaBox.getUpperRightY() - startY);
         if (!findTable(headingColour, dataColour, bounds)) {
             return null;
         }
@@ -267,7 +267,7 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
         // Now have all table limits identified
         // Extract subsets of the lines, rectangles, and text within these limits.
         // Remove horizontal lines above and below the table, trim the remainder to the horizontal limits of the table
-        SortedSet<FRectangle> horiz = horizLines.subSet(new FRectangle(0, bounds.getMaxY() - 1), new FRectangle(0, bounds.getMinY() - 1));
+        SortedSet<FRectangle> horiz = horizLines.subSet(new FRectangle(0, bounds.getMaxY()+1), new FRectangle(0, bounds.getMinY()-1));
         horiz.removeIf((FRectangle h) -> !bounds.intersects(h));
         horiz.forEach((FRectangle h) -> h.trimX(bounds.getMinX(), bounds.getMaxX()));
         horiz.removeIf((FRectangle h) -> h.getWidth() == 0);
@@ -309,8 +309,9 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
             return null;
         }
         var result = new TreeSet<TableCell>();
-        for (var r: rects) {
-            result.add(new TableCell(r, getRectangleText(r, textLocs)));
+        for (var r : rects) {
+            var c = new TableCell(r, getRectangleText(r, textLocs));
+            result.add(c);
         }
         result.addAll(buildRectangles(horiz, vert, textLocs));
         return result;
@@ -319,9 +320,10 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
     /**
      * Convert horizontal and vertical lines to rectangles.
      *
-     * Assumes that horiz and vert are sorted in Y,X order For each horizontal
-     * line, finds two leftmost vertical lines which intersect it and also
-     * intersect a lower horizontal line. This rectangle is added to the rects
+     * Assumes that horiz and vert are sorted in descending Y, ascending X order
+     * Assumes that the grid is regular... that every horizontal line extends
+     * from the left edge to the right, and every vertical line extends from the
+     * top to the bottom. Each rectangle so formed is added to the rects
      * collection
      *
      * @param horiz Set of horizontal lines, sorted by Y,X
@@ -329,68 +331,45 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
      * @param rects Set of rectangles
      */
     protected SortedSet<TableCell> buildRectangles(SortedSet<FRectangle> horiz, SortedSet<FRectangle> vert, SortedMap<Float, SortedMap<Float, Character>> tableContents) {
-        if (horiz.isEmpty() || vert.isEmpty()) {
+        if (horiz.size() < 2 || vert.size() < 2) {
             LOG.warn("Horizontal lines = {}, Vertical lines = {} so no table", horiz.size(), vert.size());
         }
-        SortedSet<TableCell> rects = new TreeSet<>();
-        while (!horiz.isEmpty()) {
-            for (var it = vert.iterator(); it.hasNext();) {
-                FRectangle v0 = it.next();
-                it.remove();
-                // Find horizontal line that intersects v0
-                float bottom = Float.NaN;
-                float top = v0.getMinY();
-                FRectangle h1 = null;
-                for (var itH = horiz.iterator(); it.hasNext();) {
-                    h1 = itH.next();
-                    itH.remove();
-                    if (h1.intersects(v0)) {
-                        v0.trimY(h1.getMinY(), mediaBox.getUpperRightY());
-                        if (v0.getHeight() > 1) {
-                            vert.add(v0);
-                        }
-                        bottom = h1.getMinY();
-                        break;
-                    }
-                    if (h1.getMaxY() > v0.getMaxY()) {
-                        break;
-                    }
-                }
-                if (Float.isNaN(bottom)) {
-                    // No horizontal lines intersect v0... trim off the
-                    //unused bit and try next vertical line
-                    if (h1 != null) {
-                        horiz.add(h1);
-                        v0.trimY(h1.getMinY(), mediaBox.getUpperRightY());
-                        if (v0.getHeight() > 1) {
-                            vert.add(v0);
-                        }
-                        continue;
-                    }
-                }
-                // Now have top, bottom, left coordinates of rectangle
-                // Find next vertical that intersects h1
-                for (FRectangle v1 : vert) {
-                    if (!v1.containsY(bottom)) {
-                        continue;
-                    }
-                    if (v1.getMinY() >= bottom - 1) {
-                        break;
-                    }
-
-                    // Found right edge
-                    TableCell r = new TableCell(v0.getMinX(), top, v1.getMinX(), bottom);
-                    r.setText(getRectangleText(r, tableContents));
-                    rects.add(r);
-                    assert (h1 != null);
-                    h1.trimX(v1.getMaxX(), mediaBox.getUpperRightX());
-                    if (h1.getWidth() > 1) {
-                        horiz.add(h1);
-                    }
-                    break;
-                }
+        var hSet = new ArrayList<Float>();
+        var prevH = Float.POSITIVE_INFINITY;
+        for (var h : horiz) {
+            if (prevH - h.getMaxY() > 3) {
+                prevH = h.getMaxY();
+                hSet.add(prevH);
             }
         }
+        var vSet = new ArrayList<Float>();
+        var prevV = Float.NEGATIVE_INFINITY;
+        for (var v : vert) {
+            if (v.getMaxX() - prevV > 3) {
+                prevV = v.getMaxX();
+                vSet.add(prevV);
+            }
+        }
+
+        if (hSet.size() < 2 || vSet.size() < 2) {
+            LOG.warn("Unique horizontal lines = {}, vertical lines = {} so no table", hSet.size(), vSet.size());
+        }
+        // Now have all unique horizontal and vertical lines
+        SortedSet<TableCell> rects = new TreeSet<>();
+        var v0 = vSet.removeFirst();
+        while (!vSet.isEmpty()) {
+            final var v1 = vSet.removeFirst();
+            var h0 = hSet.getFirst();
+            for (var i = 1; i < hSet.size(); i++) {
+                final var h1 = hSet.get(i);
+                var r = new TableCell(v0, h1, v1, h0);
+                r.setText(getRectangleText(r, tableContents));
+                rects.add(r);
+                h0 = h1;
+            }
+            v0 = v1;
+        }
+        LOG.traceExit("buildRectangles: Count = {}", rects.size());
         return rects;
     }
 
@@ -492,7 +471,7 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
             Color fillColour = r.getFillColour();
             if (headingColour == null || (fillColour != null && fillColour.getRGB() == headingColour.getRGB())) {
                 if (r.getMaxX() > bounds.getMaxX() || Float.isNaN(bounds.getMaxX())) {
-                    bounds.setMaxX(r.getMaxX() + 1);
+                    bounds.setMaxX(r.getMaxX()+1);
                 }
                 if (r.getMinX() < bounds.getMinX() || Float.isNaN(bounds.getMinX())) {
                     bounds.setMinX(r.getMinX());

@@ -32,7 +32,6 @@ public class TableCell extends FRectangle {
 
     public TableCell(float x0, float y0, float x1, float y1) {
         super(Color.WHITE, Color.BLACK, null, x0, y0, x1, y1);
-        LOG.trace("construct: ({}, {}), ({}, {})", x0, y0, x1, y1);
     }
 
     public TableCell(FRectangle r, String text) {
@@ -46,10 +45,6 @@ public class TableCell extends FRectangle {
 
     public void setText(String text) {
         this.text = text;
-    }
-
-    public void addText(String text) {
-        this.text += text;
     }
 
     public void clear() {

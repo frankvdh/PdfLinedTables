@@ -230,10 +230,10 @@ public class FRectangle implements Comparable<FRectangle> {
             return 0;
         }
         // First compare the tops of the cells... sort descending Y values
-        if (this.minY < other.minY) {
+        if (this.maxY < other.maxY) {
             return 1;
         }
-        if (this.minY > other.minY) {
+        if (this.maxY > other.maxY) {
             return -1;
         }
         // Same top, compare left edges, sort ascending
