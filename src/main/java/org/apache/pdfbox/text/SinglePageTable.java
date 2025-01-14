@@ -96,11 +96,11 @@ public class SinglePageTable extends LinedTableStripper {
      * @throws java.io.IOException for file errors May be overridden if there is
      * some other mechanism to identify the top of the table.
      */
-    public ArrayList<String[]> extractTable(Color headingColour, Color dataColour, float startY, Pattern tableEnd, int numColumns) throws IOException {
+    public ArrayList<String[]> extractTable(Color headingColour, float startY, Pattern tableEnd, int numColumns) throws IOException {
         ArrayList<String[]> result = new ArrayList<>();
         processPage(getPage());
         var endY = findEndTable(startY, mediaBox.getUpperRightY(), tableEnd);
-        super.appendToTable(headingColour, dataColour, startY, endY, numColumns, result);
+        super.appendToTable(headingColour, startY, endY, numColumns, result);
         return result;
     }
  }

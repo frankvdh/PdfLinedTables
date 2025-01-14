@@ -35,7 +35,7 @@ public class IrregularLinedTableTest {
         String absolutePath = resourcePath.toFile().getAbsolutePath();
         File file = new File(absolutePath);
         var stripper = new IrregularLinedTable(file, pageNo, extraRotation, true);
-        ArrayList<String[]> table = stripper.extractTable(hdgColor, null, 0, tableEnd, numColumns);
+        ArrayList<String[]> table = stripper.extractTable(hdgColor, 0, tableEnd, numColumns);
         assertNotNull(table);
         assertEquals(size, table.size());
         assertEquals(first, table.get(0)[0]);

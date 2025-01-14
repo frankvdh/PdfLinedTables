@@ -71,11 +71,11 @@ public class IrregularLinedTable extends MultiplePageTable {
      * some other mechanism to identify the top of the table.
      */
     @Override
-    public ArrayList<String[]> extractTable(Color headingColour, Color dataColour, float startY, Pattern tableEnd, int numColumns) throws IOException {
+    public ArrayList<String[]> extractTable(Color headingColour, float startY, Pattern tableEnd, int numColumns) throws IOException {
         ArrayList<String[]> result = new ArrayList<>();
         processPage(getPage());
         var endY = findEndTable(startY, mediaBox.getUpperRightY(), tableEnd);
-        appendToTable(headingColour, dataColour, startY, endY, numColumns, result);
+        appendToTable(headingColour, startY, endY, numColumns, result);
         return result;
     }
 
@@ -101,8 +101,8 @@ public class IrregularLinedTable extends MultiplePageTable {
      * some other mechanism to identify the top of the table.
      */
     @Override
-    public boolean appendToTable(Color headingColour, Color dataColour, float startY, float endY, int numColumns, ArrayList<String[]> table) throws IOException {
-        TreeSet<TableCell> rects = (TreeSet<TableCell>) extractCells(headingColour, dataColour, startY, endY);
+    public boolean appendToTable(Color headingColour, float startY, float endY, int numColumns, ArrayList<String[]> table) throws IOException {
+        TreeSet<TableCell> rects = (TreeSet<TableCell>) extractCells(headingColour, startY, endY);
         if (rects == null || rects.isEmpty()) {
             return false;
         }

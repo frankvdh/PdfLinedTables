@@ -63,7 +63,7 @@ public class IrregularSinglePageTable extends SinglePageTable {
             LOG.debug("extract({}, {})", file.getName(), pageNo);
         processPage(getPage());
         var endY = findEndTable(startY, mediaBox.getUpperRightY(), tableEnd);
-            SortedSet<TableCell> rects = extractCells(headingColour, dataColour, startY, endY);
+            SortedSet<TableCell> rects = extractCells(headingColour, startY, endY);
             // Find all cell edges... 
             SortedSet<Float> vert = new TreeSet<>();
             SortedSet<Float> horiz = new TreeSet<>();

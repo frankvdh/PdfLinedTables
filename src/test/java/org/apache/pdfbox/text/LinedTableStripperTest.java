@@ -47,7 +47,7 @@ public class LinedTableStripperTest {
             stripper.processPage(page);
             var endY = stripper.findEndTable(0, page.getMediaBox().getUpperRightY(), null);
             ArrayList<String[]> table = new ArrayList<>(numRows);
-            stripper.appendToTable(Color.BLACK, Color.WHITE, 0, endY, numCols, table);
+            stripper.appendToTable(Color.BLACK, 0, endY, numCols, table);
             assertEquals(numRows, table.size());
             assertEquals(numCols, table.get(0).length);
             assertEquals(first, table.get(0)[0]);

@@ -42,6 +42,10 @@ public class FRectangle implements Comparable<FRectangle> {
         setColours(fillColour, strokeColour, stroke);
     }
 
+    public FRectangle(FRectangle src) {
+        this(src.fillRgb, src.strokeRgb, src.stroke, src.minX, src.minY, src.maxX, src.maxY);
+    }
+
     final public void setColours(Color fillColour, Color strokeColour, Stroke stroke) {
         this.fillRgb = fillColour;
         this.strokeRgb = strokeColour;
@@ -197,7 +201,21 @@ public class FRectangle implements Comparable<FRectangle> {
         if (y > maxY || Float.isNaN(maxY)) {
             setMaxY(y);
         }
-        assert minX <= maxX && minY <= maxY;
+    }
+
+    public void add(FRectangle r) {
+        if (r.minX < minX || Float.isNaN(minX)) {
+            setMinX(r.minX);
+        }
+        if (r.maxX > maxX || Float.isNaN(maxX)) {
+            setMaxX(r.maxX);
+        }
+        if (r.minY < minY || Float.isNaN(minY)) {
+            setMinY(r.minY);
+        }
+        if (r.maxY > maxY || Float.isNaN(maxY)) {
+            setMaxY(r.maxY);
+        }
     }
 
     public void trimX(float min, float max) {
