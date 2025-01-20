@@ -79,7 +79,7 @@ public class MultiplePageTable extends LinedTableStripper {
      * file.
      */
     protected MultiplePageTable(PDDocument document, int firstPage, int extraRotation, boolean suppressDuplicates) throws IOException {
-        super(document.getPage(firstPage), extraRotation, suppressDuplicates);
+        super(document, document.getPage(firstPage), extraRotation, suppressDuplicates);
         currPage = firstPage;
         doc = document;
     }

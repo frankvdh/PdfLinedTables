@@ -55,7 +55,7 @@ public class SinglePageTable extends LinedTableStripper {
      * file.
      */
     public SinglePageTable(PDDocument doc, int pageNum, int extraRotation, boolean suppressDuplicates) throws IOException {
-        this(doc.getPage(pageNum), extraRotation, suppressDuplicates);
+        this(doc, doc.getPage(pageNum), extraRotation, suppressDuplicates);
     }
 
     /**
@@ -72,8 +72,8 @@ public class SinglePageTable extends LinedTableStripper {
      * @throws IOException If there is an error loading properties from the
      * file.
      */
-    protected SinglePageTable(PDPage page, int extraRotation, boolean suppressDuplicates) throws IOException {
-        super(page, extraRotation, suppressDuplicates);
+    protected SinglePageTable(PDDocument doc, PDPage page, int extraRotation, boolean suppressDuplicates) throws IOException {
+        super(doc, page, extraRotation, suppressDuplicates);
     }
 
     /**

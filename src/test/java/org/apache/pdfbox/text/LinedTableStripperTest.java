@@ -29,9 +29,9 @@ public class LinedTableStripperTest {
     @Test
     public void testExtractTable() throws IOException {
         strip("OneRow.pdf", 0, 0,
-                1, 2, "data1", "", "data2");
+                1, 2, "data1", "data2", "data2");
         strip("AIP/NZANR-Aerodrome_Coordinates.pdf", 0, 0,
-                19, 6, "ALEXANDRA", "2", "1753031.00E");
+                19, 6, "ALEXANDRA", "[CERTIFICATION]:None", "1753031.00E");
     }
 
     private void strip(String filename, int pageNo, int extraRotation,
@@ -43,7 +43,7 @@ public class LinedTableStripperTest {
         try (PDDocument doc = Loader.loadPDF(file)) {
             LOG.fatal(LOG.getLevel());
             PDPage page = doc.getPage(pageNo);
-            LinedTableStripper stripper = new LinedTableStripper(page, extraRotation, true);
+            LinedTableStripper stripper = new LinedTableStripper(doc, page, extraRotation, true);
             stripper.processPage(page);
             var endY = stripper.findEndTable(0, page.getMediaBox().getUpperRightY(), null);
             ArrayList<String[]> table = new ArrayList<>(numRows);
@@ -51,7 +51,7 @@ public class LinedTableStripperTest {
             assertEquals(numRows, table.size());
             assertEquals(numCols, table.get(0).length);
             assertEquals(first, table.get(0)[0]);
-//            assertEquals(middle, table.get(size / 2)[1]);
+            assertEquals(middle, table.get(table.size() / 2)[numCols/2]);
             assertEquals(last, table.get(table.size() - 1)[numCols - 1]);
         }
     }

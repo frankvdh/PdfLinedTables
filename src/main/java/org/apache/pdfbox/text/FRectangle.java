@@ -8,9 +8,21 @@ import java.awt.Color;
 import java.awt.Stroke;
 import java.awt.geom.Point2D;
 
-/**
+/*
  *
  * @author frank
+ */
+
+/**
+ * Utility class to represent a rectangle or vertical or horizontal line.
+ *
+ * A horizontal line is a rectangle where minY == maxY.
+ * A vertical line is a rectangle where minX == maxX.
+ * minX must less tan or equal to maxX
+ * minY must less tan or equal to maxY
+ * 
+ * Instances are sorted according to their maxY and then minX (i.e. top-left corner)
+ *
  */
 public class FRectangle implements Comparable<FRectangle> {
 
@@ -163,10 +175,19 @@ public class FRectangle implements Comparable<FRectangle> {
         return containsX(x) && containsY(y);
     }
 
+    /** Check whether this instance intersects with another
+     *      *
+     * @param other
+     * @return
+     */
     public boolean intersects(FRectangle other) {
         return overlapsX(other.minX, other.maxX) && overlapsY(other.minY, other.maxY);
     }
 
+    /** Intersects this instance with another instances
+     *
+     * @param other
+     */
     public void intersect(FRectangle other) {
         if (other.minX > minX) {
             minX = other.minX;
@@ -218,6 +239,14 @@ public class FRectangle implements Comparable<FRectangle> {
         }
     }
 
+   final public FRectangle expand(float x) {
+        minX -= x;
+        minY -= x;
+        maxX += x;
+        maxY += x;
+        return this;
+    }
+    
     public void trimX(float min, float max) {
         if (minX < min) {
             minX = min;
@@ -247,11 +276,11 @@ public class FRectangle implements Comparable<FRectangle> {
         if (this == other) {
             return 0;
         }
-        // First compare the tops of the cells... sort descending Y values
-        if (this.maxY < other.maxY) {
+        // First compare the tops of the cells... sort ascending
+        if (this.minY > other.minY) {
             return 1;
         }
-        if (this.maxY > other.maxY) {
+        if (this.minY < other.minY) {
             return -1;
         }
         // Same top, compare left edges, sort ascending
@@ -266,8 +295,10 @@ public class FRectangle implements Comparable<FRectangle> {
 
     @Override
     public String toString() {
-        return String.format("[(%.2f, %.2f), (%.2f, %.2f)]: %08x %08x %s", minX, minY, maxX, maxY, fillRgb == null ? 0xaaaaaaaa : fillRgb.getRGB(),
-                strokeRgb == null ? 0xaaaaaaaa : strokeRgb.getRGB(), stroke == null ? "null" : stroke.toString());
+        return String.format("[(%.2f, %.2f), (%.2f, %.2f)]: %s %s %s", minX, minY, maxX, maxY, 
+                fillRgb == null ? "null" : String.format("%08x", fillRgb.getRGB()),
+                strokeRgb == null ? "null" : String.format("%08x", strokeRgb.getRGB()), 
+                stroke == null ? "null" : stroke.toString());
     }
 
 }

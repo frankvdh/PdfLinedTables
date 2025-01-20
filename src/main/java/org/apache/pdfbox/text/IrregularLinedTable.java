@@ -100,13 +100,13 @@ public class IrregularLinedTable extends MultiplePageTable {
      * @throws java.io.IOException for file errors May be overridden if there is
      * some other mechanism to identify the top of the table.
      */
-    @Override
-    public boolean appendToTable(Color headingColour, float startY, float endY, int numColumns, ArrayList<String[]> table) throws IOException {
+//    @Override
+    public boolean xappendToTable(Color headingColour, float startY, float endY, int numColumns, ArrayList<String[]> table) throws IOException {
         TreeSet<TableCell> rects = (TreeSet<TableCell>) extractCells(headingColour, startY, endY);
         if (rects == null || rects.isEmpty()) {
             return false;
         }
-        buildRegularTable(rects);
+        xbuildRegularTable(rects);
         String[] row = new String[numColumns];
         int colNum = 0;
         for (TableCell r : rects) {
@@ -135,7 +135,7 @@ public class IrregularLinedTable extends MultiplePageTable {
      * 'wrapChar'. Horizontal spacing of the text will be maintained depending
      * on the state of the 'instertSpaces' and 'monoSpace' flags.
      */
-    private TreeSet<TableCell> buildRegularTable(TreeSet<TableCell> rects) {
+    private TreeSet<TableCell> xbuildRegularTable(TreeSet<TableCell> rects) {
         // Build lists of rows & columns ordered by their X & Y position
         SortedSet<Float> rows = new TreeSet<>();
         SortedSet<Float> colSet = new TreeSet<>();
@@ -151,13 +151,13 @@ public class IrregularLinedTable extends MultiplePageTable {
         colSet.add(maxX);
 
         TreeSet<TableCell> result = new TreeSet<>();
-        Float[] cols = (Float[]) colSet.toArray();
         Float top = rows.removeFirst();
         while (!rows.isEmpty()) {
+        SortedSet<Float> cols = new TreeSet<>(colSet);
             float bottom = rows.removeFirst();
-            for (int i = 1; i < cols.length; i++) {
-                float left = cols[i - 1];
-                float right = cols[i];
+                float left = cols.removeFirst();
+            while (!cols.isEmpty()) {
+                float right = cols.removeFirst();
                 TableCell cell = new TableCell(left, top, right, bottom);
                 TableCell src = rects.ceiling(cell);
 
@@ -165,6 +165,7 @@ public class IrregularLinedTable extends MultiplePageTable {
                     cell.setText(src.getText());
                 }
                 result.add(cell);
+                left = right;
             }
         }
 

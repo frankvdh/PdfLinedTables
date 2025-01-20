@@ -23,6 +23,9 @@ public class IrregularLinedTableTest {
 
     @Test
     public void testExtractTable() throws IOException {
+//        strip("AIP/GEN_3.7.pdf", 0, new Color(223,223,223),
+//                Pattern.compile("Table\\s?GEN\\s?3.7-2"), 90, 4,
+//                69, "ALL AIRCRAFT", "r", "");
         strip("AIP/GEN_3.7.pdf", 0, new Color(223,223,223),
                 Pattern.compile("Table\\s?GEN\\s?3.7-2"), 90, 4,
                 69, "ALL AIRCRAFT", "r", "");
@@ -35,7 +38,7 @@ public class IrregularLinedTableTest {
         String absolutePath = resourcePath.toFile().getAbsolutePath();
         File file = new File(absolutePath);
         var stripper = new IrregularLinedTable(file, pageNo, extraRotation, true);
-        ArrayList<String[]> table = stripper.extractTable(hdgColor, 0, tableEnd, numColumns);
+        ArrayList<String[]> table = stripper.extractTable(hdgColor, extraRotation, tableEnd, numColumns);
         assertNotNull(table);
         assertEquals(size, table.size());
         assertEquals(first, table.get(0)[0]);

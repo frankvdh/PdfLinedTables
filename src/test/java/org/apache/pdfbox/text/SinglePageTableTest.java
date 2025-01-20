@@ -47,7 +47,7 @@ public class SinglePageTableTest {
         String absolutePath = resourcePath.toFile().getAbsolutePath();
         File file = new File(absolutePath);
         try (PDDocument doc = Loader.loadPDF(file)) {
-            SinglePageTable stripper = new SinglePageTable(doc, pageNo - 1, 0, true);
+            var stripper = new SinglePageTable(doc, pageNo - 1, 0, true);
             ArrayList<String[]> table = stripper.extractTable(headerColour, 0, Pattern.compile("\\*\\*\\*"), cols);
             assertEquals(size, table.size());
             assertEquals(cols, table.get(0).length);
