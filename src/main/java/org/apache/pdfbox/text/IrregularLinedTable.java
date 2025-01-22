@@ -10,7 +10,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.SortedSet;
 import java.util.TreeSet;
-import java.util.regex.Pattern;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 
@@ -51,35 +50,6 @@ public class IrregularLinedTable extends MultiplePageTable {
     }
 
     /**
-     * Extract a table matching the criteria on the given page.
-     *
-     * Finds the table, and removes extraneous lines, rectangles, and text Scans
-     * the rectangles sorted collection for the first rectangle of the heading
-     * colour. Then expands the X,Y limits until it finds the first data colour
-     * rectangle (if any). The bottom of the heading, and therefore the top of
-     * the data, is at this Y coordinate.
-     *
-     * It then extracts text below the heading and between the X,Y bounds, and
-     * scans it for the tableEnd pattern.
-     *
-     * @param headingColour Fill colour of heading, may be null
-     * @param dataColour Fill colour of data, may be null
-     * @param tableEnd Pattern to identify end of table
-     * @return the bounds of the table.
-     *
-     * @throws java.io.IOException for file errors May be overridden if there is
-     * some other mechanism to identify the top of the table.
-     */
-    @Override
-    public ArrayList<String[]> extractTable(Color headingColour, float startY, Pattern tableEnd, int numColumns) throws IOException {
-        ArrayList<String[]> result = new ArrayList<>();
-        processPage(getPage());
-        var endY = findEndTable(startY, mediaBox.getUpperRightY(), tableEnd);
-        appendToTable(headingColour, startY, endY, numColumns, result);
-        return result;
-    }
-
-    /**
      * Append the section of the table matching the criteria on the current
      * page.
      *
@@ -100,13 +70,13 @@ public class IrregularLinedTable extends MultiplePageTable {
      * @throws java.io.IOException for file errors May be overridden if there is
      * some other mechanism to identify the top of the table.
      */
-//    @Override
-    public boolean xappendToTable(Color headingColour, float startY, float endY, int numColumns, ArrayList<String[]> table) throws IOException {
+    @Override
+    public boolean appendToTable(Color headingColour, float startY, float endY, int numColumns, ArrayList<String[]> table) throws IOException {
         TreeSet<TableCell> rects = (TreeSet<TableCell>) extractCells(headingColour, startY, endY);
         if (rects == null || rects.isEmpty()) {
             return false;
         }
-        xbuildRegularTable(rects);
+        buildRegularTable(rects);
         String[] row = new String[numColumns];
         int colNum = 0;
         for (TableCell r : rects) {
@@ -135,7 +105,7 @@ public class IrregularLinedTable extends MultiplePageTable {
      * 'wrapChar'. Horizontal spacing of the text will be maintained depending
      * on the state of the 'instertSpaces' and 'monoSpace' flags.
      */
-    private TreeSet<TableCell> xbuildRegularTable(TreeSet<TableCell> rects) {
+    private TreeSet<TableCell> buildRegularTable(TreeSet<TableCell> rects) {
         // Build lists of rows & columns ordered by their X & Y position
         SortedSet<Float> rows = new TreeSet<>();
         SortedSet<Float> colSet = new TreeSet<>();
@@ -153,9 +123,9 @@ public class IrregularLinedTable extends MultiplePageTable {
         TreeSet<TableCell> result = new TreeSet<>();
         Float top = rows.removeFirst();
         while (!rows.isEmpty()) {
-        SortedSet<Float> cols = new TreeSet<>(colSet);
+            SortedSet<Float> cols = new TreeSet<>(colSet);
             float bottom = rows.removeFirst();
-                float left = cols.removeFirst();
+            float left = cols.removeFirst();
             while (!cols.isEmpty()) {
                 float right = cols.removeFirst();
                 TableCell cell = new TableCell(left, top, right, bottom);

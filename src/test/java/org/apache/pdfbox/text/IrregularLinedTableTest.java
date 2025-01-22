@@ -27,7 +27,7 @@ public class IrregularLinedTableTest {
 //                Pattern.compile("Table\\s?GEN\\s?3.7-2"), 90, 4,
 //                69, "ALL AIRCRAFT", "r", "");
         strip("AIP/GEN_3.7.pdf", 0, new Color(223,223,223),
-                Pattern.compile("Table\\s?GEN\\s?3.7-2"), 90, 4,
+                Pattern.compile("Table\\s?GEN\\s?3.7-2"), 90, 8,
                 69, "ALL AIRCRAFT", "r", "");
     }
 

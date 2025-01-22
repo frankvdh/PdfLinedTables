@@ -97,9 +97,9 @@ public class MultiplePageTable extends LinedTableStripper {
             float endTable;
         do {
             LOG.debug("Extracting page {} of {}", currPage, doc.getNumberOfPages());
-            super.processPage(doc.getPage(currPage++));
+            processPage(doc.getPage(currPage++));
             endTable = findEndTable(startY, mediaBox.getUpperRightY(), tableEnd);
-            super.appendToTable(headingColour, startY, endTable, numColumns, result);
+            appendToTable(headingColour, startY, endTable, numColumns, result);
             startY = 0;
         } while (currPage < doc.getNumberOfPages() && !endTableFound);
         return result;

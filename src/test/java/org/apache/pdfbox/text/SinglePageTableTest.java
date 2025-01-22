@@ -34,7 +34,7 @@ public class SinglePageTableTest {
         strip("OneRow.pdf", 1, Color.BLACK,
                 1, 2, "data1", null, "data2");
         strip("AIP/1_04_NZANR_Part_71_Parachute_Landing_Areas_PLA.pdf", 1, Color.BLACK,
-                16, 3, "NZP114", "HAMILTON AERODROME", "[Organisation or Authority:] Using agency: Skydive Queenstown Ltd (trading as Nzone Skydive), PO Box 554, Queenstown 9348, \nTEL (03) 442 2256");
+                16, 3, "NZP114", "HAMILTON AERODROME", "[Organisation or Authority:] Using agency: Skydive Queenstown Ltd (trading as Nzone Skydive), PO Box 554, Queenstown 9348, \n  TEL (03) 442 2256");
         strip("AIP/1_03_NZANR_Part_71_Low_Flying_Zones_LFZ.pdf", 1, Color.BLACK,
                 18, 5, "NZL160", "THAMES", "[Organisation or Authority:] New Plymouth Aero Club,  New Plymouth Airport, RD3, New Plymouth 4373, TEL (06) 755 0500");
         strip("AIP/NZANR-Aerodrome_Coordinates.pdf", 1, Color.BLACK,
