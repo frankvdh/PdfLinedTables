@@ -8,16 +8,15 @@ import java.awt.Color;
 import java.io.File;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
 import java.util.regex.Pattern;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import static org.junit.Assert.assertEquals;
 import org.junit.Test;
 
-public class MultiplePageTableTest {
+public class RegularTableTest {
 
-    public static final Logger LOG = LogManager.getLogger(MultiplePageTable.class.getName());
+    public static final Logger LOG = LogManager.getLogger(RegularTable.class.getName());
 
     /**
      * Test of findTable and extractTable methods, of class SinglePageTable.
@@ -36,10 +35,12 @@ public class MultiplePageTableTest {
         String[] firsts = {"AUCKLAND", "FALEOLO", "TAUPO", "AITUTAKI", "AUCKLAND", "FALEOLO"};
         String[] lasts = {"WHANGANUI", "FUAAMOTU", "WHANGANUI", "VAVAU", "WHENUAPAI", "PAGO PAGO"};
         Pattern tableEnd = Pattern.compile("\\*\\*\\*");
-        MultiplePageTable stripper = new MultiplePageTable(new File(absolutePath), 0, 0, true);
+        RegularTable stripper = new RegularTable(new File(absolutePath), 0, true);
 
+        var pageNum = 0;
+        var startY = 0f;
         for (int i = 0; i < names.length; i++) {
-            ArrayList<String[]> table = stripper.extractTable(Color.BLACK, 0, tableEnd, rowSizes[i]);
+            var table = stripper.extractTable(pageNum, Color.BLACK, startY, tableEnd, rowSizes[i]);
             assertEquals(tableSizes[i], table.size());
             LOG.info("Table {}", names[i]);
             for (String[] row : table) {
@@ -52,6 +53,8 @@ public class MultiplePageTableTest {
             }
             assertEquals(firsts[i], table.get(0)[0]);
             assertEquals(lasts[i], table.get(table.size() - 1)[0]);
+            pageNum = stripper.getCurrPageNum();   // Continue
+            startY = stripper.getTableBottom()+3;
         }
     }
 }

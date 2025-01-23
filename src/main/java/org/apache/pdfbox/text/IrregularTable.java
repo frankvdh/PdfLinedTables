@@ -18,7 +18,7 @@ import org.apache.pdfbox.pdmodel.PDDocument;
  *
  * @author frank
  */
-public class IrregularLinedTable extends MultiplePageTable {
+public class IrregularTable extends RegularTable {
 
     /**
      * Constructor for extractor for irregular tables...
@@ -31,8 +31,8 @@ public class IrregularLinedTable extends MultiplePageTable {
      * @throws IOException If there is an error loading properties from the
      * file.
      */
-    public IrregularLinedTable(PDDocument document, int firstPage, int extraRotation, boolean suppressDuplicates) throws IOException {
-        super(document, firstPage, extraRotation, suppressDuplicates);
+    public IrregularTable(PDDocument document, int extraRotation, boolean suppressDuplicates) throws IOException {
+        super(document, extraRotation, suppressDuplicates);
     }
 
     /**
@@ -45,8 +45,8 @@ public class IrregularLinedTable extends MultiplePageTable {
      * @throws IOException If there is an error loading properties from the
      * file.
      */
-    public IrregularLinedTable(File file, int firstPage, int extraRotation, boolean suppressDuplicates) throws IOException {
-        this(Loader.loadPDF(file), firstPage, extraRotation, suppressDuplicates);
+    public IrregularTable(File file, int extraRotation, boolean suppressDuplicates) throws IOException {
+        this(Loader.loadPDF(file), extraRotation, suppressDuplicates);
     }
 
     /**
@@ -71,10 +71,10 @@ public class IrregularLinedTable extends MultiplePageTable {
      * some other mechanism to identify the top of the table.
      */
     @Override
-    public boolean appendToTable(Color headingColour, float startY, float endY, int numColumns, ArrayList<String[]> table) throws IOException {
-        TreeSet<TableCell> rects = (TreeSet<TableCell>) extractCells(headingColour, startY, endY);
+    public void appendToTable(Color headingColour, float startY, int numColumns, ArrayList<String[]> table) throws IOException {
+        var rects = extractCells(headingColour, startY);
         if (rects == null || rects.isEmpty()) {
-            return false;
+            return;
         }
         buildRegularTable(rects);
         String[] row = new String[numColumns];
@@ -90,7 +90,6 @@ public class IrregularLinedTable extends MultiplePageTable {
         if (colNum > 0) {
             table.add(row);
         }
-        return endTableFound;
     }
 
     /**

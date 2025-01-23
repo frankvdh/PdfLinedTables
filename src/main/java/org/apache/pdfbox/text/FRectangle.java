@@ -247,6 +247,16 @@ public class FRectangle implements Comparable<FRectangle> {
         return this;
     }
     
+    public float trimX(float x) {
+        if (x < minX) {
+            return minX;
+        }
+        if (x > maxX) {
+            return maxX;
+        }
+        return x;
+    }
+   
     public void trimX(float min, float max) {
         if (minX < min) {
             minX = min;
