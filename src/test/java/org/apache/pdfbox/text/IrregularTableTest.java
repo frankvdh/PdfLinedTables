@@ -23,11 +23,11 @@ public class IrregularTableTest {
 
     @Test
     public void testExtractTable() throws IOException {
-//        strip("AIP/GEN_3.7.pdf", 0, new Color(223,223,223),
-//                Pattern.compile("Table\\s?GEN\\s?3.7-2"), 1, 4,
-//                69, "ALL AIRCRAFT", "r", "");
         strip("AIP/GEN_3.7.pdf", 0, new Color(223,223,223),
-                Pattern.compile("Table\\s?GEN\\s?3.7-2"), 1, 8,
+                null, 3, 8,
+                69, "ALL AIRCRAFT", "r", "");
+        strip("AIP/GEN_3.7.pdf", 0, new Color(223,223,223),
+                Pattern.compile("Table\\s?GEN\\s?3.7-2"), 3, 8,
                 207, "ALL AIRCRAFT", "123.7", "Nominal range at 10,000 ft: 80 NM    Note: Terrain shielding may reduce            AVBL range. ELEV 110 ft");
     }
 

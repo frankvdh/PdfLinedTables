@@ -67,7 +67,7 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
      * Vertical graphic lines on the page Top of page is first
      *
      */
-    final protected SortedSet<FRectangle> vertLines = new TreeSet<>();
+    final protected SortedMap<Float, SortedMap<Float, Float>> vertLines = new TreeMap<>();
 
     /**
      * Horizontal graphic lines on the page Top of page is first
@@ -81,7 +81,7 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
      * of page is first
      *
      */
-    final protected TreeMap<Integer, SortedMap<Float, SortedMap<Float, FRectangle>>> rectangles = new TreeMap<>();
+    final protected SortedMap<Integer, SortedMap<Float, SortedMap<Float, FRectangle>>> rectangles = new TreeMap<>();
 
     /**
      * Map of text by X within Y location for populating rectangles. Top of page
@@ -106,7 +106,8 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
      * Constructor.
      *
      * @param page Page to be read.
-     * @param extraQuadrantRotation Number of 90deg rotations to apply to page
+     * @param extraQuadrantRotation Number of CCW 90deg rotations to apply to
+     * page
      * @throws IOException If there is an error loading properties from the
      * file.
      */
@@ -145,14 +146,14 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
             LOG.warn("Page is not zero-based: {}", mediaBox);
             postRotate.translate(-mediaBox.getLowerLeftX(), -mediaBox.getLowerLeftY());
         }
-        postRotate.quadrantRotate(extraQuadrantRotation);
+        postRotate.quadrantRotate(extraQuadrantRotation, mediaBox.getWidth() / 2, mediaBox.getWidth() / 2);
         // Also flip the coordinates vertically, so that the coordinates increase
         // down the page, so that rows at the top of the table are output first
         postRotate.scale(1, -1);
         postRotate.translate(0, -mediaBox.getUpperRightY());
         LOG.debug("PostRotate: {}", postRotate);
         transformRectangle(mediaBox, postRotate);
-        LOG.trace("Transformed mediaBox: {}", mediaBox);
+        LOG.debug("Transformed mediaBox: {}", mediaBox);
 
         if (page.hasContents()) {
             isProcessingPage = true;
@@ -325,7 +326,6 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
 
         // Remove rectangles that are below the last horizontal line of the table... this removes any footnotes
         // Initially  include rectangles which extend above the top of the table, because they may extend down into the table
-        bounds.expand(3);
         var rects = new TreeMap<>(rectangles.get(headingColour.getRGB()).subMap(bounds.getMinY(), bounds.getMaxY()));
         for (var yIt = rects.entrySet().iterator(); yIt.hasNext();) {
             var yEntry = yIt.next();
@@ -336,17 +336,18 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
         }
 
         // Remove horizontal lines above and below the table, trim the remainder to the horizontal limits of the table
-        var horiz = new TreeMap<>(horizLines.subMap(bounds.getMinY(), bounds.getMaxY()));
+        var horiz = new TreeMap<>(horizLines.subMap(bounds.getMinY()-3, bounds.getMaxY()+3));
         for (var row : horiz.values()) {
             for (var it = row.entrySet().iterator(); it.hasNext();) {
                 var e = it.next();
                 var left = bounds.trimX(e.getKey());
                 var right = bounds.trimX(e.getValue());
                 if (!bounds.overlapsX(left, right) || right - left < 3) {
-                   it.remove();
+                    it.remove();
                 }
             }
         }
+        horiz.entrySet().removeIf((var e) -> e.getValue().isEmpty());
         if (horiz.isEmpty()) {
             LOG.error("No horizontal lines in table");
             return null;
@@ -354,9 +355,8 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
 
         // Remove vertical lines left or right of the table, trim the remainder to the vertical limits of the table
         // Initially  include lines which extend above the top of the table, because they may extend down into the table
-        SortedSet<FRectangle> vert = new TreeSet<>(vertLines.subSet(new FRectangle(bounds.getMinX(), bounds.getMinY()), new FRectangle(0, bounds.getMaxY())));
-        vert.forEach((FRectangle v) -> v.trimY(bounds.getMinY(), bounds.getMaxY()));
-        vert.removeIf((FRectangle v) -> v.getHeight() < 3 || !bounds.intersects(v));
+        // Remove empty rows
+        var vert = trimVert(bounds, vertLines);
         if (vert.isEmpty()) {
             LOG.error("No vertical lines in table");
             return null;
@@ -378,6 +378,77 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
         return buildActualRectangles(horiz, vert, textLocs);
     }
 
+    private SortedMap<Float, SortedMap<Float, Float>> trimVert(FRectangle bounds, SortedMap<Float, SortedMap<Float, Float>> source) {
+        var vert = new TreeMap<>(source.headMap(bounds.getMaxY()+3));
+        var top = bounds.getMinY();
+        var topRow = vert.computeIfAbsent(top, k -> new TreeMap<>());
+        for (var itR = vert.entrySet().iterator(); itR.hasNext();) {
+            var rowEntry = itR.next();
+            var row = rowEntry.getValue();
+            var rowY = rowEntry.getKey();
+
+            // Remove lines left or right of the table, or completely above the table, or with top just above the bottom bound
+            row.entrySet().removeIf((var e) -> e.getKey() < bounds.getMinX()-3 || e.getKey() > bounds.getMaxX()+3 || e.getValue() < top - 3);
+            if (row.isEmpty()) {
+                // Remove entry for row
+                itR.remove();
+                continue;
+            }
+
+            // Trim all remaining line bottoms to Y limits of table
+            // Already know that the line intersects the table
+            for (var e : row.entrySet()) {
+                var bottom = e.getValue();
+                // Trim bottom
+                if (bottom > bounds.getMaxY()) {
+                    e.setValue(bounds.getMaxY());
+                }
+            }
+            if (rowY < top) {
+                // Changed key == top 
+                itR.remove();
+                for (var v : row.entrySet()) {
+                    if (!topRow.keySet().contains(v.getKey()) || topRow.get(v.getKey()) < v.getValue()) {
+                        topRow.put(v.getKey(), v.getValue());
+                    }
+                }
+            }
+        }
+        return vert;
+    }
+
+    /**
+     * Trim vertical lines to the table Remove vertical lines whose bottom
+     * vertex is above the table Trim vertical lines whose top vertex is above
+     * the table
+     *
+     * @param top Top edge of table
+     * @param vert Vertical lines, in X within Y order
+     */
+    private SortedMap<Float, Float> trimVert(float top, SortedMap<Float, SortedMap<Float, Float>> vert) {
+        var topRow = vert.computeIfAbsent(top, k -> new TreeMap<>());
+        for (var itR = vert.entrySet().iterator(); itR.hasNext();) {
+            var rowEntry = itR.next();
+            var rowY = rowEntry.getKey();
+            if (rowY > top) {
+                break;
+            }
+
+            // Remove lines above the table
+            var row = rowEntry.getValue();
+            row.entrySet().removeIf((var e) -> e.getValue() < top - 3);
+            // Changed key == top 
+            itR.remove();
+                for (var v : row.entrySet()) {
+                    if (!topRow.keySet().contains(v.getKey()) || topRow.get(v.getKey()) < v.getValue()) {
+                        topRow.put(v.getKey(), v.getValue());
+                    }
+                }
+        }
+        vert.entrySet().removeIf((var row) -> row.getValue().isEmpty());
+        return topRow;
+    }
+
     /**
      * Convert horizontal and vertical lines to rectangles.
      *
@@ -391,8 +462,11 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
      * @param vert Set of vertical lines, sorted by Y,X
      * @param rects Set of rectangles
      */
-    protected TreeSet<TableCell> buildActualRectangles(SortedMap<Float, SortedMap<Float, Float>> horiz, SortedSet<FRectangle> vert, SortedMap<Float, SortedMap<Float, SimpleTextPosition>> tableContents) {
-        if (horiz.size() < 2 || vert.size() < 2) {
+    protected TreeSet<TableCell> buildActualRectangles(
+            SortedMap<Float, SortedMap<Float, Float>> horiz,
+            SortedMap<Float, SortedMap<Float, Float>> vert,
+            SortedMap<Float, SortedMap<Float, SimpleTextPosition>> tableContents) {
+        if (horiz.size() < 2 || vert.isEmpty()) {
             LOG.error("Horizontal lines = {}, Vertical lines = {} so no table", horiz.size(), vert.size());
             return null;
         }
@@ -403,14 +477,8 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
             var row0 = horiz.remove(top);
 
             // Trim all vertical lines to the current top, so that lines
-            // intersecting h0 are all indexed in left-right order
-            while (!vert.isEmpty() && vert.first().getMinY() < top) {
-                var v = vert.removeFirst();
-                v.trimY(top, v.getMaxY());
-                if (v.getHeight() > 3) {
-                    vert.add(v);
-                }
-            }
+            // intersecting h0 are all in a single row, in left-right order
+            var topRow = trimVert(top, vert);
 
             while (!row0.isEmpty()) {
                 var h0 = row0.firstEntry();
@@ -440,48 +508,31 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
                     continue;
                 }
 
-                LOG.trace("{}, {}, {}, {}", top, left, right, h1);
-                var finalLeft = left - 3;
-                var finalRight = right + 3;
-                var finalBottom = bottom;
-                var vSet = new TreeSet<>(vert.subSet(new FRectangle(left - 3, top - 3), new FRectangle(right + 3, top + 3)));
-                vSet.removeIf((var v) -> !v.overlapsX(finalLeft, finalRight) || !v.overlapsY(top - 3, top + 3) || !v.overlapsY(finalBottom - 3, finalBottom + 3));
+                LOG.trace("{}, {}, {}, {}", left, top, right, bottom);
+                final var finalBottom = bottom;
+                var vSet = new TreeMap<Float, Float>(topRow.subMap(left - 3, right + 3));
+                vSet.entrySet().removeIf((var v) -> v.getValue() < finalBottom - 3);
                 while (vSet.size() > 1) {
-                    final var v0 = vSet.removeFirst();
-                    left = v0.getMinX();
-                    float right1 = Float.NaN;
-                    FRectangle v1 = null;
-                    while (!vSet.isEmpty()) {
-                        v1 = vSet.removeFirst();
-                        right1 = v1.getMaxX();
-                        if (right1 < left + 3) {
-                            continue;
-                        }
-                        right = right1;
-                        break;
-                    }
-                    if (Float.isNaN(right1)) {
-                        break;
+                    var left1 = vSet.firstEntry();
+                    vSet.remove(left1.getKey());
+                    var right1 = vSet.ceilingEntry(left + 3);
+                    if (right1 == null) {
+                        continue;
                     }
                     var rect = new TableCell(left, bottom, right, top);
-                    if (rect.getHeight() < 3 || rect.getWidth() < 3) {
+                    if (rect.getHeight() < 3) {
                         continue;
                     }
                     rect.setText(getRectangleText(rect, tableContents));
                     results.add(rect);
-                    LOG.debug("Added \"{}\" {}", rect.getText().replaceAll("\\n", "\\\\\\n"), rect);
-                    vert.remove(v0);
+                    LOG.trace("Added \"{}\" {}", rect.getText().replaceAll("\\n", "\\\\\\n"), rect);
                     // Only keep the part of v0 that extends below h1
                     // Do not trim v1 or h1 because they can be the left or top edge of another cell
-                    v0.trimY(bottom, v0.getMaxY());
-                    if (v0.getHeight() > 3) {
-                        vert.add(v0);
-                    }
+                    vSet.entrySet().removeIf((var v) -> v.getKey() <= right1.getKey());
                     if (h0.getValue() > right) {
                         row0.put(right, h0.getValue());
                     }
                     // Rectangle is complete... start processing next top horizontal line
-                    vSet.clear();
                     break;
                 }
             }
@@ -649,7 +700,7 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
      * some other mechanism to identify the top of the table.
      */
     protected boolean findTable(Color headingColour, FRectangle bounds) throws IOException {
-        LOG.debug("findTable(\"{}\")", headingColour);
+        LOG.traceEntry("findTable(\"{}\")", headingColour);
         if (headingColour != null) {
             // Find the location of the table by finding the first rectangle of the right colour
             var sameColour = rectangles.get(headingColour.getRGB());
@@ -663,7 +714,7 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
                     // The last rectangle of the same colour on the same row as the first provides the right boundary of the table
                     var first = row.firstEntry().getValue();
                     var last = row.lastEntry().getValue();
-                    if (!first.intersects(hdgBounds)) {
+                    if (!hdgBounds.overlapsY(first.getMinY(), first.getMaxY())) {
                         break;
                     }
                     hdgBounds.add(first);
@@ -687,23 +738,13 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
 
         // horizLines is not empty
         bounds.setMinY(Math.min(bounds.getMinY(), horizLines.firstKey()));
-        var vert = new TreeSet<>(vertLines);
-        vert.removeIf((var v) -> !v.containsY(bounds.getMaxY()));
-        if (vert.isEmpty()) {
-            var hSet = new TreeMap<>(horizLines.headMap(bounds.getMinY()));
-            bounds.setX(horizLines.firstEntry().getValue().firstKey(), hSet.lastEntry().getValue().lastKey());
+        var vert = new TreeMap<>(vertLines.headMap(bounds.getMaxY()));
+        var hSet = new TreeMap<>(horizLines.headMap(bounds.getMinY()));
+        bounds.setX(horizLines.firstEntry().getValue().firstKey(), hSet.lastEntry().getValue().lastKey());
+        if (vert.size() < 2) {
             return true;
         }
-        bounds.setMinX(vert.getFirst().getMinX() - 1);
-        bounds.setMaxX(vert.getLast().getMaxX() + 1);
-        for (var v : vert) {
-            if (v.getMinX() < bounds.getMinX()) {
-                bounds.setMinX(v.getMinX() - 1);
-            }
-            if (v.getMaxX() > bounds.getMaxX()) {
-                bounds.setMaxX(v.getMaxX() + 1);
-            }
-        }
+        bounds.setX(vert.ceilingEntry(bounds.getMinX() - 3).getKey(), vert.floorKey(bounds.getMaxX() + 3));
         return true;
     }
 
@@ -773,7 +814,10 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
             }
             LOG.trace("horiz line added {}", rect);
         } else if (rect.getWidth() <= 3) {
-            vertLines.add(rect);
+            var row = vertLines.computeIfAbsent(rect.getMinY(), k -> new TreeMap<>());
+            if (!row.keySet().contains(rect.getMinX()) || row.get(rect.getMinX()) < rect.getMaxY()) {
+                row.put(rect.getMinX(), rect.getMaxY());
+            }
             LOG.trace("vertical line added {}", rect);
         } else {
             var sameColour = rectangles.computeIfAbsent(fillColour.getRGB(), k -> new TreeMap<>());
@@ -809,12 +853,19 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
                 // 3 is a kludge -- NZKM.pdf has rectangles 2.96 wide that are not vertical lines
                 if (Math.abs(p1.y - prev.y) <= 3) {
                     var row = horizLines.computeIfAbsent(prev.y, k -> new TreeMap<>());
-                    if (!row.keySet().contains(prev.x) || row.get(prev.x) < p1.x) {
-                        row.put(prev.x, p1.x);
+                    var left = Math.min(prev.x, p1.x);
+                    var right = Math.max(prev.x, p1.x);
+                    if (!row.keySet().contains(left) || row.get(left) < right) {
+                        row.put(left, right);
                     }
                     LOG.trace("horiz line added {} - {}", prev, p1);
                 } else if (Math.abs(p1.x - prev.x) <= 3) {
-                    vertLines.add(new FRectangle(prev.x, prev.y, p1.x, p1.y));
+                    var top = Math.min(prev.y, p1.y);
+                    var bottom = Math.max(prev.y, p1.y);
+                    var row = vertLines.computeIfAbsent(top, k -> new TreeMap<>());
+                    if (!row.keySet().contains(prev.x) || row.get(prev.x) < bottom) {
+                        row.put(prev.x, bottom);
+                    }
                     LOG.trace("vertical line added {} - {}", prev, p1);
                 } else {
                     LOG.warn("Diagonal line segment {}, {} ignored", prev, p1);
