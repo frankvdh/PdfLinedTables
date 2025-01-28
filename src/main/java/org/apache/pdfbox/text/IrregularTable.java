@@ -18,7 +18,7 @@ import org.apache.pdfbox.pdmodel.PDDocument;
  *
  * @author frank
  */
-public class IrregularTable extends RegularTable {
+public class IrregularTable extends LinedTableStripper {
 
     /**
      * Constructor for extractor for irregular tables...
@@ -32,7 +32,7 @@ public class IrregularTable extends RegularTable {
      * file.
      */
     public IrregularTable(PDDocument document, int extraRotation, boolean suppressDuplicates) throws IOException {
-        super(document, extraRotation, suppressDuplicates);
+        super(document, extraRotation, suppressDuplicates, 3);
     }
 
     /**

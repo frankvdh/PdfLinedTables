@@ -6,17 +6,49 @@ package org.apache.pdfbox.text;
  */
 import java.awt.Color;
 import java.io.File;
+import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.regex.Pattern;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.pdfbox.Loader;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDPage;
 import static org.junit.Assert.assertEquals;
 import org.junit.Test;
 
 public class RegularTableTest {
 
     public static final Logger LOG = LogManager.getLogger(RegularTable.class.getName());
+
+    @Test
+    public void testExtractTable() throws IOException {
+        strip("OneRow.pdf", 0, 0, 1, 2, "data1", "data2", "data2");
+    }
+ //   private void strip(String filename, int pageNo, Color headerColour, int size, int cols, String first, String middle, String last) throws IOException {
+    private void strip(String filename, int pageNo, int extraRotation,
+            int numRows, int numCols, String first, String middle, String last) throws IOException {
+        LOG.info("Processing file {}", filename);
+        Path resourcePath = Paths.get("src", "test", "resources", filename);
+        String absolutePath = resourcePath.toFile().getAbsolutePath();
+        File file = new File(absolutePath);
+        try (PDDocument doc = Loader.loadPDF(file)) {
+            LOG.fatal(LOG.getLevel());
+            RegularTable stripper = new RegularTable(doc, extraRotation, true);
+            PDPage page = doc.getPage(pageNo);
+            stripper.processPage(page);
+            stripper.findEndTable(0, page.getMediaBox().getUpperRightY(), null);
+            ArrayList<String[]> table = new ArrayList<>(numRows);
+            stripper.appendToTable(Color.BLACK, 0, numCols, table);
+            assertEquals(numRows, table.size());
+            assertEquals(numCols, table.get(0).length);
+            assertEquals(first, table.get(0)[0]);
+            assertEquals(middle, table.get(table.size() / 2)[numCols/2]);
+            assertEquals(last, table.get(table.size() - 1)[numCols - 1]);
+        }
+    }
 
     /**
      * Test of findTable and extractTable methods, of class SinglePageTable.

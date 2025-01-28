@@ -67,13 +67,13 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
      * Vertical graphic lines on the page Top of page is first
      *
      */
-    final protected SortedMap<Float, SortedMap<Float, Float>> vertLines = new TreeMap<>();
+    final protected TreeMap<Float, TreeMap<Float, Float>> vertLines = new TreeMap<>();
 
     /**
      * Horizontal graphic lines on the page Top of page is first
      *
      */
-    final protected SortedMap<Float, SortedMap<Float, Float>> horizLines = new TreeMap<>();
+    final protected TreeMap<Float, TreeMap<Float, Float>> horizLines = new TreeMap<>();
 
     /**
      * Filled rectangle graphics on the page... used to find table headings.
@@ -81,7 +81,7 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
      * of page is first
      *
      */
-    final protected SortedMap<Integer, SortedMap<Float, SortedMap<Float, FRectangle>>> rectangles = new TreeMap<>();
+    final protected TreeMap<Integer, TreeMap<Float, TreeMap<Float, FRectangle>>> rectangles = new TreeMap<>();
 
     /**
      * Map of text by X within Y location for populating rectangles. Top of page
@@ -97,10 +97,22 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
     protected PDRectangle mediaBox;
     final private boolean suppressDuplicateOverlappingText;
     final private int extraQuadrantRotation;
+    final private float tolerance;
     private final GeneralPath linePath = new GeneralPath();
     private AffineTransform postRotate;
     protected boolean endTableFound;
     protected float endTablePos;
+
+    final private PDDocument doc;
+    private int currPage = -1;
+
+    public int getCurrPageNum() {
+        return currPage;
+    }
+
+    public float getTableBottom() {
+        return endTablePos;
+    }
 
     /**
      * Constructor.
@@ -111,16 +123,18 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
      * @throws IOException If there is an error loading properties from the
      * file.
      */
-    public LinedTableStripper(PDDocument doc, int extraQuadrantRotation, boolean suppressDuplicates) throws IOException {
+    public LinedTableStripper(PDDocument doc, int extraQuadrantRotation, boolean suppressDuplicates, float tolerance) throws IOException {
         super(null);
         suppressDuplicateOverlappingText = suppressDuplicates;
         this.extraQuadrantRotation = extraQuadrantRotation;
+        this.tolerance = tolerance;
+        this.doc = doc;
         // Set up extra rotation that is not specified in the page
         // Some pages e.g. GEN_3.7.pdf are rotated -90 degrees, but
         // page.getRotation() doesn't know it. This extra rotation is performed
         // separately because it can result in objects outside the normal media
         // box, which are then not rendered
-        assert (extraQuadrantRotation >= 0 && extraQuadrantRotation <= 3) : "Rotation must be 0-3: " + extraQuadrantRotation;
+        assert (extraQuadrantRotation >= 0 && extraQuadrantRotation <= tolerance) : "Rotation must be 0-3: " + extraQuadrantRotation;
     }
 
     /**
@@ -146,12 +160,13 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
             LOG.warn("Page is not zero-based: {}", mediaBox);
             postRotate.translate(-mediaBox.getLowerLeftX(), -mediaBox.getLowerLeftY());
         }
-        postRotate.quadrantRotate(extraQuadrantRotation, mediaBox.getWidth() / 2, mediaBox.getWidth() / 2);
+        var rotCentre = Math.max(mediaBox.getWidth(), mediaBox.getHeight()) / 2;
+        postRotate.quadrantRotate(extraQuadrantRotation, rotCentre, rotCentre);
         // Also flip the coordinates vertically, so that the coordinates increase
         // down the page, so that rows at the top of the table are output first
         postRotate.scale(1, -1);
         postRotate.translate(0, -mediaBox.getUpperRightY());
-        LOG.debug("PostRotate: {}", postRotate);
+        LOG.trace("PostRotate: {}", postRotate);
         transformRectangle(mediaBox, postRotate);
         LOG.debug("Transformed mediaBox: {}", mediaBox);
 
@@ -159,7 +174,7 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
             isProcessingPage = true;
             processStream(page);
             isProcessingPage = false;
-            //           consolidateRowTable();
+            consolidateVertRowTable();
         }
     }
 
@@ -178,50 +193,71 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
         r.setUpperRightY(Math.max(p0.y, p1.y));
     }
 
-    private void consolidateRowTable() {
-        if (horizLines.size() < 2) {
+    private void consolidateVertRowTable() {
+        if (vertLines.size() < 2) {
             return;
         }
-        Entry<Float, SortedMap<Float, Float>> prevRow = null;
-        for (var it = horizLines.entrySet().iterator(); it.hasNext();) {
+        Entry<Float, TreeMap<Float, Float>> prevRow = null;
+        for (var it = vertLines.sequencedEntrySet().iterator(); it.hasNext();) {
             var entry = it.next();
             var row = entry.getValue();
             var y = entry.getKey();
-            LOG.trace("Row:    {}", row);
+            it.forEachRemaining((var r) -> {
+            });
+            LOG.debug("Row: {} ->   {}", y, row);
             if (row.isEmpty()) {
                 it.remove();
                 continue;
             }
-            if (prevRow == null || y - prevRow.getKey() > 3) {
+            if (prevRow == null || y - prevRow.getKey() > tolerance) {
                 prevRow = entry;
             } else {
-                mergeRow(prevRow.getValue(), row);
+                mergeVertRow(prevRow.getKey(), prevRow.getValue(), y, row);
                 it.remove();
-                LOG.trace("Result: {}", row);
+                LOG.debug("merged: {}", row);
+            }
+            simplifyVertRow(prevRow.getValue());
+            LOG.debug("result: {}", prevRow);
+        }
+    }
+
+    private void simplifyVertRow(TreeMap<Float, Float> row) {
+        if (row.size() < 2) {
+            return;
+        }
+        var it = row.entrySet().iterator();
+        var prev = it.next();
+        while (it.hasNext()) {
+            var e = it.next();
+            if (e.getKey() <= prev.getValue() + tolerance) {
+                prev.setValue(e.getValue());
+                it.remove();
+            } else {
+                prev = e;
             }
         }
     }
 
-    private void mergeRow(SortedMap<Float, Float> target, SortedMap<Float, Float> src) {
+    private void mergeVertRow(float tT, SortedMap<Float, Float> target, float sT, SortedMap<Float, Float> src) {
         for (var e : src.entrySet()) {
-            var sL = e.getKey();
-            var sR = e.getValue();
-            var nearby = target.subMap(sL - 3, sR + 3);
+            var sX = e.getKey();
+            var sB = e.getValue();
+            var nearby = target.subMap(sX - tolerance, sX + tolerance);
             if (nearby.isEmpty()) {
-                target.put(sL, sR);
+                target.put(sX, sB);
                 continue;
             }
             var success = false;
             for (var t : nearby.entrySet()) {
-                var tL = t.getKey();
-                var tR = t.getValue();
-                if (tL <= sL) {
-                    // src doesn't overlap target's left edge
-                    if (tR >= sL) {
-                        // src overlaps tgt, but not on left
-                        if (tR <= sR) {
-                            // src overlaps tgt to right only. Extend target to right
-                            t.setValue(sR);
+                var tX = t.getKey();
+                var tB = t.getValue();
+                if (sT > tT) {
+                    // src doesn't overlap target's top edge
+                    if (sT < tB) {
+                        // src overlaps tgt, but not at top
+                        if (sB > tB) {
+                            // src overlaps tgt at bottom only. Extend target down
+                            t.setValue(sB);
                         } else {
                             // tgt completely covers src... do nothing
                         }
@@ -231,16 +267,16 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
                         // src is completely right of target, no overlap
                         // keep trying
                     }
-                } else if (tR <= sR) {
+                } else if (sB > tB) {
                     // src contains target
-                    target.remove(tL);
-                    target.put(sL, sR);
+                    target.remove(tX);
+                    target.put(tX, sB);
                     success = true;
                     break;
-                } else if (sR >= tL) {
-                    // src overlaps target, extends left
-                    target.remove(tL);
-                    target.put(sL, tR);
+                } else if (sB >= tX) {
+                    // src overlaps target, extends above
+                    target.remove(tX);
+                    target.put(sX, tB);
                     success = true;
                     break;
                 } else {
@@ -250,9 +286,42 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
             }
             if (!success) {
                 // No overlaps found... add
-                target.put(sL, sR);
+                target.put(sX, sB);
             }
         }
+    }
+
+    /**
+     * Parse a tables in the specified PDF file.
+     *
+     * @param firstPage Page to start table from.
+     * @param headingColour Background colour of heading to search for
+     * @param startY Y coordinate on first page to start from
+     * @param tableEnd Pattern indicating end of table
+     * @param numColumns Number of columns in table
+     * @return table. Each String[] entry contains each row in the table. Each
+     * row is an array of Strings, with one entry for each column in the table.
+     * @throws IOException on file error
+     */
+    public ArrayList<String[]> extractTable(int firstPage, Color headingColour, float startY, Pattern tableEnd, int numColumns) throws IOException {
+        ArrayList<String[]> result = new ArrayList<>();
+        do {
+            if (currPage != firstPage) {
+                processPage(doc.getPage(firstPage));
+                currPage = firstPage;
+            }
+            LOG.debug("Extracting page {} of {}", currPage + 1, doc.getNumberOfPages());
+            findEndTable(startY, mediaBox.getUpperRightY(), tableEnd);
+            if (!Float.isNaN(endTablePos)) {
+                appendToTable(headingColour, startY, numColumns, result);
+            }
+            if (endTableFound) {
+                return result;
+            }
+            startY = 0;
+            firstPage = currPage + 1;
+        } while (firstPage < doc.getNumberOfPages());
+        return result;
     }
 
     /**
@@ -277,23 +346,7 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
      * some other mechanism to identify the top of the table.
      */
     public void appendToTable(Color headingColour, float startY, int numColumns, ArrayList<String[]> table) throws IOException {
-        SortedSet<TableCell> rects = extractCells(headingColour, startY);
-        if (rects == null) {
-            return;
-        }
-        String[] row = new String[numColumns];
-        int colNum = 0;
-        for (TableCell r : rects) {
-            row[colNum++] = r.getText();
-            if (colNum >= numColumns) {
-                table.add(row);
-                row = new String[numColumns];
-                colNum = 0;
-            }
-        }
-        if (colNum > 0) {
-            table.add(row);
-        }
+        throw new RuntimeException("Not implemented");
     }
 
     /**
@@ -319,6 +372,7 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
         assert startY >= 0 : "startY < 0";
         var bounds = new FRectangle(Float.NaN, startY, Float.NaN, endTablePos);
         if (!findTable(headingColour, bounds)) {
+            LOG.error("Table header not found");
             return null;
         }
         // Now have located top & bottom of data in the table, and left & right limits
@@ -329,20 +383,20 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
         var rects = new TreeMap<>(rectangles.get(headingColour.getRGB()).subMap(bounds.getMinY(), bounds.getMaxY()));
         for (var yIt = rects.entrySet().iterator(); yIt.hasNext();) {
             var yEntry = yIt.next();
-            yEntry.getValue().entrySet().removeIf((var xEntry) -> !bounds.containsX(xEntry.getKey()) || xEntry.getValue().getHeight() < 3 || (xEntry.getValue().getWidth() < 3));
+            yEntry.getValue().entrySet().removeIf((var xEntry) -> !bounds.containsX(xEntry.getKey()) || xEntry.getValue().getHeight() < tolerance || (xEntry.getValue().getWidth() < tolerance));
             if (yEntry.getValue().isEmpty()) {
                 yIt.remove();
             }
         }
 
         // Remove horizontal lines above and below the table, trim the remainder to the horizontal limits of the table
-        var horiz = new TreeMap<>(horizLines.subMap(bounds.getMinY()-3, bounds.getMaxY()+3));
+        var horiz = new TreeMap<>(horizLines.subMap(bounds.getMinY() - tolerance, bounds.getMaxY() + tolerance));
         for (var row : horiz.values()) {
             for (var it = row.entrySet().iterator(); it.hasNext();) {
                 var e = it.next();
                 var left = bounds.trimX(e.getKey());
                 var right = bounds.trimX(e.getValue());
-                if (!bounds.overlapsX(left, right) || right - left < 3) {
+                if (!bounds.overlapsX(left, right) || right - left < tolerance) {
                     it.remove();
                 }
             }
@@ -378,8 +432,8 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
         return buildActualRectangles(horiz, vert, textLocs);
     }
 
-    private SortedMap<Float, SortedMap<Float, Float>> trimVert(FRectangle bounds, SortedMap<Float, SortedMap<Float, Float>> source) {
-        var vert = new TreeMap<>(source.headMap(bounds.getMaxY()+3));
+    private TreeMap<Float, TreeMap<Float, Float>> trimVert(FRectangle bounds, TreeMap<Float, TreeMap<Float, Float>> source) {
+        var vert = new TreeMap<>(source.headMap(bounds.getMaxY() + tolerance));
         var top = bounds.getMinY();
         var topRow = vert.computeIfAbsent(top, k -> new TreeMap<>());
         for (var itR = vert.entrySet().iterator(); itR.hasNext();) {
@@ -388,7 +442,7 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
             var rowY = rowEntry.getKey();
 
             // Remove lines left or right of the table, or completely above the table, or with top just above the bottom bound
-            row.entrySet().removeIf((var e) -> e.getKey() < bounds.getMinX()-3 || e.getKey() > bounds.getMaxX()+3 || e.getValue() < top - 3);
+            row.entrySet().removeIf((var e) -> e.getKey() < bounds.getMinX() - tolerance || e.getKey() > bounds.getMaxX() + tolerance || e.getValue() < top - tolerance);
             if (row.isEmpty()) {
                 // Remove entry for row
                 itR.remove();
@@ -405,7 +459,7 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
                 }
             }
             if (rowY < top) {
-                // Changed key == top 
+                // Changed key == top
                 itR.remove();
                 for (var v : row.entrySet()) {
                     if (!topRow.keySet().contains(v.getKey()) || topRow.get(v.getKey()) < v.getValue()) {
@@ -417,35 +471,51 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
         return vert;
     }
 
+    private TreeMap<Float, Float> getRow(float y, TreeMap<Float, TreeMap<Float, Float>> map) {
+        var r = map.subMap(y - tolerance, y + tolerance);
+        return (r.isEmpty())
+                ? map.computeIfAbsent(y, k -> new TreeMap<>())
+                : map.floorEntry(y).getValue();
+
+    }
+
     /**
-     * Trim vertical lines to the table Remove vertical lines whose bottom
-     * vertex is above the table Trim vertical lines whose top vertex is above
-     * the table
+     * Trim vertical lines to the table R
+     *
+     * Remove vertical lines whose top vertex is above the table. Lines with
+     * bottom vertex above the table are removed entirely Lines whose top vertex
+     * is above the table and bottom vertex is in or below the table are
+     * returned
      *
      * @param top Top edge of table
      * @param vert Vertical lines, in X within Y order
+     * @return Vertical lines extending across or to the top of the table
      */
-    private SortedMap<Float, Float> trimVert(float top, SortedMap<Float, SortedMap<Float, Float>> vert) {
-        var topRow = vert.computeIfAbsent(top, k -> new TreeMap<>());
+    private SortedMap<Float, Float> mergeTopRow(float top, TreeMap<Float, TreeMap<Float, Float>> vert) {
+        var topRow = new TreeMap<Float, Float>();
+        // Process lines starting above the top of the table
         for (var itR = vert.entrySet().iterator(); itR.hasNext();) {
             var rowEntry = itR.next();
             var rowY = rowEntry.getKey();
-            if (rowY > top) {
+            if (rowY > top + tolerance) {
                 break;
             }
 
-            // Remove lines above the table
             var row = rowEntry.getValue();
-            row.entrySet().removeIf((var e) -> e.getValue() < top - 3);
-            // Changed key == top 
+            // Remove the entire row from the table
             itR.remove();
-                for (var v : row.entrySet()) {
-                    if (!topRow.keySet().contains(v.getKey()) || topRow.get(v.getKey()) < v.getValue()) {
-                        topRow.put(v.getKey(), v.getValue());
-                    }
+            // Remove lines whose bottom is above the table
+            row.entrySet().removeIf((var e) -> e.getValue() < top + tolerance);
+            // Remaining entries have bottoms extending into or below the table
+            // Add them to the new top row
+            for (var v : row.entrySet()) {
+                var vSet = topRow.subMap(v.getKey() - tolerance, v.getKey() + tolerance);
+                if (vSet.isEmpty() || vSet.firstEntry().getValue() < v.getValue()) {
+                    topRow.put(v.getKey(), v.getValue());
                 }
+            }
         }
-        vert.entrySet().removeIf((var row) -> row.getValue().isEmpty());
+        vert.put(top, topRow);
         return topRow;
     }
 
@@ -463,8 +533,8 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
      * @param rects Set of rectangles
      */
     protected TreeSet<TableCell> buildActualRectangles(
-            SortedMap<Float, SortedMap<Float, Float>> horiz,
-            SortedMap<Float, SortedMap<Float, Float>> vert,
+            TreeMap<Float, TreeMap<Float, Float>> horiz,
+            TreeMap<Float, TreeMap<Float, Float>> vert,
             SortedMap<Float, SortedMap<Float, SimpleTextPosition>> tableContents) {
         if (horiz.size() < 2 || vert.isEmpty()) {
             LOG.error("Horizontal lines = {}, Vertical lines = {} so no table", horiz.size(), vert.size());
@@ -474,66 +544,57 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
         var results = new TreeSet<TableCell>();
         while (!horiz.isEmpty()) {
             var top = horiz.firstKey();
-            var row0 = horiz.remove(top);
+            var hRow0 = horiz.remove(top);
 
-            // Trim all vertical lines to the current top, so that lines
-            // intersecting h0 are all in a single row, in left-right order
-            var topRow = trimVert(top, vert);
+            // Get all vertical lines intersecting h0 Y in a single row, in left-right order
+            var vTopRow = mergeTopRow(top, vert);
 
-            while (!row0.isEmpty()) {
-                var h0 = row0.firstEntry();
-                var left = h0.getKey();
-                var right = h0.getValue();
-                row0.remove(left);
-
-                // Current top row has already been removed from horiz, so this
-                // searches rows below it (i.e. with higher key values)
-                // Find the first horizontal line that lies below the h0 line
-                Entry<Float, Float> h1 = null;
-                float bottom = Float.NaN;
-                for (var rowEntry : horiz.entrySet()) {
-                    if (rowEntry.getKey() < top + 3) {
-                        // A second line too close below the first... ignore it
-                        continue;
-                    }
-                    var row1 = rowEntry.getValue().subMap(left - 3, right + 3);
-                    if (row1.isEmpty()) {
-                        continue;
-                    }
-                    h1 = row1.firstEntry();
-                    bottom = rowEntry.getKey();
+            while (true) {
+                var h0 = hRow0.pollFirstEntry();
+                if (h0 == null) {
                     break;
                 }
-                if (Float.isNaN(bottom)) {
+                var left = h0.getKey();
+                var rightH0 = h0.getValue();
+                var bottomRowSet = new TreeMap<>(horiz.tailMap(top + tolerance));
+                var leftFinal = left;
+                bottomRowSet.entrySet().removeIf((var h) -> h.getValue().firstKey() - leftFinal > tolerance);
+                if (bottomRowSet.isEmpty()) {
                     continue;
                 }
+                var rightFinal = rightH0;
+                var bottomEntry = bottomRowSet.firstEntry();
+                var bottomRow = new TreeMap<>(bottomEntry.getValue());
+                bottomRow.entrySet().removeIf((var h) -> h.getKey() > rightFinal - tolerance);
+                if (bottomRow.isEmpty()) {
+                    continue;
+                }
+                var bottom = bottomEntry.getKey();
+                // Horizontal lines do not overlap with each other
+                if (bottomRow.firstKey() > left + tolerance) {
+                    left = bottomRow.firstKey();
+                }
+                if (bottomRow.lastEntry().getValue() < rightH0 - tolerance) {
+                    rightH0 = bottomRow.lastEntry().getValue();
+                }
 
-                LOG.trace("{}, {}, {}, {}", left, top, right, bottom);
-                final var finalBottom = bottom;
-                var vSet = new TreeMap<Float, Float>(topRow.subMap(left - 3, right + 3));
-                vSet.entrySet().removeIf((var v) -> v.getValue() < finalBottom - 3);
-                while (vSet.size() > 1) {
-                    var left1 = vSet.firstEntry();
-                    vSet.remove(left1.getKey());
-                    var right1 = vSet.ceilingEntry(left + 3);
-                    if (right1 == null) {
-                        continue;
-                    }
-                    var rect = new TableCell(left, bottom, right, top);
-                    if (rect.getHeight() < 3) {
-                        continue;
-                    }
-                    rect.setText(getRectangleText(rect, tableContents));
-                    results.add(rect);
-                    LOG.trace("Added \"{}\" {}", rect.getText().replaceAll("\\n", "\\\\\\n"), rect);
-                    // Only keep the part of v0 that extends below h1
-                    // Do not trim v1 or h1 because they can be the left or top edge of another cell
-                    vSet.entrySet().removeIf((var v) -> v.getKey() <= right1.getKey());
-                    if (h0.getValue() > right) {
-                        row0.put(right, h0.getValue());
-                    }
-                    // Rectangle is complete... start processing next top horizontal line
-                    break;
+                // Now have the top & bottom lines and X limits
+                LOG.debug("{}, {}, {}, {}", left, top, rightH0, bottom);
+
+                var leftFinal2 = left;
+                vTopRow.entrySet().removeIf((var v) -> v.getKey() < leftFinal2 - tolerance);
+                var vSet = new TreeMap<>(vTopRow.headMap(rightH0 + tolerance));
+                var bottomFinal = bottom;
+                vSet.entrySet().removeIf((var v) -> v.getValue() < bottomFinal - tolerance);
+                left = vSet.pollFirstEntry().getKey();
+                var right = vSet.firstKey();
+                var rect = new TableCell(left, bottom, right, top);
+                rect.setText(getRectangleText(rect, tableContents));
+                results.add(rect);
+                LOG.trace("Added \"{}\" {}", rect.getText().replaceAll("\\n", "\\\\\\n"), rect);
+                vTopRow.entrySet().removeIf((var v) -> v.getKey() < right - tolerance);
+                if (h0.getValue() > right + tolerance) {
+                    hRow0.put(right, h0.getValue());
                 }
             }
         }
@@ -562,14 +623,14 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
         var hSet = new TreeSet<Float>();
         var prevH = Float.POSITIVE_INFINITY;
         for (var h : horiz) {
-            if (prevH - h.getMaxY() > 3) {
+            if (prevH - h.getMaxY() > tolerance) {
                 prevH = h.getMaxY();
                 hSet.add(prevH);
             }
         }
         var vSet = new TreeSet<Float>();
         for (var v : vert) {
-            var exists = !vSet.subSet(v.getMinX() - 3, v.getMaxX() + 3).isEmpty();
+            var exists = !vSet.subSet(v.getMinX() - tolerance, v.getMaxX() + tolerance).isEmpty();
             if (!exists) {
                 vSet.add(v.getMaxX());
             }
@@ -587,7 +648,7 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
             var v0 = vSet.getFirst();
             float v1;
             for (var col = 0; col < vSet.size() - 1; col++) {
-                v1 = vSet.ceiling(v0 + 3);
+                v1 = vSet.ceiling(v0 + tolerance);
                 var result = new TableCell(v0, h1, v1, h0);
                 var srcSet = new TreeSet<>(tableContents);
                 srcSet.removeIf((var r) -> !r.intersects(result));
@@ -673,6 +734,7 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
         if (!horizLines.isEmpty()) {
             // Assume that the last horizontal line on the page is the bottom of the table
             endTablePos = horizLines.lastKey();
+            endTableFound = tableEnd == null;
             if (endTablePos <= startY) {
                 LOG.warn("No Table end delimiter specified and no horizontal line below heading");
                 endTablePos = Float.NaN;
@@ -744,7 +806,7 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
         if (vert.size() < 2) {
             return true;
         }
-        bounds.setX(vert.ceilingEntry(bounds.getMinX() - 3).getKey(), vert.floorKey(bounds.getMaxX() + 3));
+        bounds.setX(vert.ceilingEntry(bounds.getMinX() - tolerance).getKey(), vert.floorKey(bounds.getMaxX() + tolerance));
         return true;
     }
 
@@ -780,8 +842,7 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
     }
 
     /**
-     * Add a line/rectangle to the appropriate set -- horizontal or vertical
-     * lines, or rectangles
+     * Add a filled rectangle to the set of rectangles
      *
      * Coordinates are in the display coordinate system
      *
@@ -794,37 +855,28 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
         LOG.traceEntry("addFilledPath: {}, {}", linePath.getBounds(), fillColour);
         Rectangle2D bounds = linePath.getBounds2D();
         // Ignore cells too small for text
-        if (bounds.getHeight() < 3 || bounds.getWidth() < 3) {
-            LOG.warn("Ignored shaded rectangle too small for text");
+        if (bounds.getHeight() < tolerance || bounds.getWidth() < tolerance) {
+            LOG.warn("Ignored shaded rectangle {} too small for text", bounds);
             return;
         }
 
         var p0 = transformPoint((float) bounds.getMinX(), (float) bounds.getMinY(), postRotate);
         var p1 = transformPoint((float) bounds.getMaxX(), (float) bounds.getMaxY(), postRotate);
         // Coordinates here are already in display space
-        FRectangle rect = new FRectangle(fillColour, null, null, p0, p1);
-        LOG.trace("Rectangle {} -> {}", bounds, rect);
 
         // Add a rectangle to the appropriate sorted list (horizLines, vertLines, rectangles).
-        // 3 is a kludge -- NZKM.pdf has rectangles 2.96 wide that are not vertical lines
-        if (rect.getHeight() <= 3) {
-            var row = horizLines.computeIfAbsent(rect.getMinY(), k -> new TreeMap<>());
-            if (!row.keySet().contains(rect.getMinX()) || row.get(rect.getMinX()) < rect.getMaxX()) {
-                row.put(rect.getMinX(), rect.getMaxX());
-            }
-            LOG.trace("horiz line added {}", rect);
-        } else if (rect.getWidth() <= 3) {
-            var row = vertLines.computeIfAbsent(rect.getMinY(), k -> new TreeMap<>());
-            if (!row.keySet().contains(rect.getMinX()) || row.get(rect.getMinX()) < rect.getMaxY()) {
-                row.put(rect.getMinX(), rect.getMaxY());
-            }
-            LOG.trace("vertical line added {}", rect);
+        FRectangle rect = new FRectangle(fillColour, null, null, p0, p1);
+        var sameColour = rectangles.computeIfAbsent(fillColour.getRGB(), k -> new TreeMap<>());
+        var row = sameColour.computeIfAbsent(p0.y, k -> new TreeMap<>());
+        if (!row.keySet().contains(p0.x)) {
+            row.put(p0.x, rect);
         } else {
-            var sameColour = rectangles.computeIfAbsent(fillColour.getRGB(), k -> new TreeMap<>());
-            var sameRow = sameColour.computeIfAbsent(rect.getMinY(), k -> new TreeMap<>());
-            sameRow.put(rect.getMinX(), rect);
-            LOG.trace("rectangle added {}", rect);
+            var existing = row.get(p0.x);
+            if (p1.x >= existing.getMaxX() && p1.y >= existing.getMaxY()) {
+                row.replace(p0.x, rect);
+            }
         }
+        LOG.trace("rectangle added {}", rect);
     }
 
     /**
@@ -840,42 +892,124 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
         // Coordinates here are already in display space
         // However, there maybe an additional transform done to handle rotated
         // pages without the pageRotation set correctly
-        var pi = linePath.getPathIterator(postRotate);
+        var pathIt = linePath.getPathIterator(postRotate);
         var numPoints = 0;
         Point2D.Float prev = null;
-        while (!pi.isDone()) {
+        while (!pathIt.isDone()) {
             float coords[] = new float[6];
-            pi.currentSegment(coords);
+            pathIt.currentSegment(coords);
             var p1 = new Point2D.Float(coords[0], coords[1]);
             LOG.trace("coords {} -> {}", coords, p1);
             if (prev != null) {
                 // Add a line to the appropriate sorted list (horizLines, vertLines).
-                // 3 is a kludge -- NZKM.pdf has rectangles 2.96 wide that are not vertical lines
-                if (Math.abs(p1.y - prev.y) <= 3) {
-                    var row = horizLines.computeIfAbsent(prev.y, k -> new TreeMap<>());
-                    var left = Math.min(prev.x, p1.x);
-                    var right = Math.max(prev.x, p1.x);
-                    if (!row.keySet().contains(left) || row.get(left) < right) {
-                        row.put(left, right);
-                    }
-                    LOG.trace("horiz line added {} - {}", prev, p1);
-                } else if (Math.abs(p1.x - prev.x) <= 3) {
-                    var top = Math.min(prev.y, p1.y);
-                    var bottom = Math.max(prev.y, p1.y);
-                    var row = vertLines.computeIfAbsent(top, k -> new TreeMap<>());
-                    if (!row.keySet().contains(prev.x) || row.get(prev.x) < bottom) {
-                        row.put(prev.x, bottom);
-                    }
-                    LOG.trace("vertical line added {} - {}", prev, p1);
-                } else {
-                    LOG.warn("Diagonal line segment {}, {} ignored", prev, p1);
-                }
+                addLine(prev, p1);
             }
             prev = p1;
-            pi.next();
+            pathIt.next();
             numPoints++;
         }
         linePath.reset();
+    }
+
+    /**
+     * Add line segment to the appropriate set -- horizontal or vertical lines
+     *
+     * Coordinates are in the display coordinate system
+     *
+     */
+    private void addLine(Point2D.Float p0, Point2D.Float p1) throws IOException {
+        LOG.traceEntry("addPath: {} {}", p0, p1);
+
+        // Coordinates here are already in display space
+        // Add a line to the appropriate sorted list (horizLines, vertLines).
+        if (Math.abs(p1.y - p0.y) <= tolerance) {
+            var y = (p1.y + p0.y) / 2;
+            var left = Math.min(p0.x, p1.x);
+            var right = Math.max(p0.x, p1.x);
+            var nearby = horizLines.subMap(y - tolerance, y + tolerance);
+            if (nearby.isEmpty()) {
+                var row = new TreeMap<Float, Float>();
+                row.put(left, right);
+                horizLines.put(y, row);
+                LOG.debug("new horiz line added y = {}, {} - {}", y, left, right);
+            } else {
+                // A row has been found within tolerance... insert this segment 
+                // into the nearest row
+                var nextRow = horizLines.ceilingEntry(y);
+                var prevRow = horizLines.floorEntry(y);
+                var row = prevRow == null ? nextRow : nextRow == null ? prevRow : y - prevRow.getKey() < nextRow.getKey() - y ? prevRow : nextRow;
+                insertHorizRow(left, right, row.getValue());
+                LOG.debug("added to horiz line y = {}, {} - {}", y, left, right);
+            }
+        } else if (Math.abs(p1.x - p0.x) <= tolerance) {
+            var top = Math.min(p0.y, p1.y);
+            var bottom = Math.max(p0.y, p1.y);
+            var x = (p0.x + p1.x) / 2;
+            var nearby = new TreeMap<>(horizLines.headMap(bottom + tolerance));
+            for (var it = nearby.entrySet().iterator(); it.hasNext();) {
+                var rowEntry = it.next();
+                var row = rowEntry.getValue().entrySet();
+                var rowY = rowEntry.getValue();
+                row.removeIf((var v) -> Math.abs(v.getKey() - x) > tolerance);
+                if (row.isEmpty()) {
+                    it.remove();
+                }
+            }
+            if (nearby.isEmpty()) {
+                var row = new TreeMap<Float, Float>();
+                row.put(x, bottom);
+                vertLines.put(top, row);
+                LOG.debug("new vert line added x = {}, {} - {}", x, top, bottom);
+            } else {
+                // A row has been found within tolerance... insert this segment 
+                // into the nearest row
+                var nextRow = vertLines.ceilingEntry(bottom);
+                var prevRow = vertLines.floorEntry(top);
+                var row = prevRow == null ? nextRow : nextRow == null ? prevRow : top - prevRow.getKey() < nextRow.getKey() - top ? prevRow : nextRow;
+                insertVertRow(top, bottom,);
+                LOG.debug("added to vert line x = {}, {} - {}", x, top, bottom);
+            }
+            if (!row.keySet().contains(x) || row.get(x) < bottom) {
+                row.put(x, bottom);
+            }
+            LOG.trace("vertical line added x = {}, {} - {}", x, top, row.get(x));
+        } else {
+            LOG.warn("Diagonal line segment {}, {} ignored", p0, p1);
+        }
+    }
+
+    private void insertHorizRow(float left, float right, TreeMap<Float, Float> row) {
+        var prev = row.floorEntry(left);
+        if (prev == null || prev.getValue() < left - tolerance) {
+            // No intersection with prev, check next
+            var next = row.ceilingEntry(left);
+            if (next == null || next.getKey() > right + tolerance) {
+                // No intersection with prev or next, insert new
+                row.put(left, right);
+                return;
+            }
+            // No intersection with prev, intersects next -> prepend to next
+            row.remove(next.getKey());
+            row.put(right, next.getValue());
+            return;
+        }
+
+        if (prev.getValue() < right) {
+            // Overlaps prev
+            var next = row.ceilingEntry(left);
+            if (next == null || next.getKey() > right + tolerance) {
+                // No intersection with next, append to prev
+                row.put(prev.getKey(), right);
+                return;
+            }
+            // Intersection with both prev and next -> append to prev
+            // No intersection with next, append to prev
+            row.put(prev.getKey(), next.getValue());
+            return;
+
+        } else {
+            // Completely covered by prev... ignore
+        }
     }
 
     /**
@@ -1097,10 +1231,10 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
         LOG.traceEntry("processtextPosition {}", tp);
         var sortedRow = textLocationsByYX.computeIfAbsent(tp.getY(), k -> new TreeMap<>());
         if (suppressDuplicateOverlappingText) {
-            float tolerance = tp.getWidth() / 3.0f;
-            var yMatches = textLocationsByYX.subMap(tp.getY() - tolerance, tp.getY() + tolerance);
+            float overlapTolerance = tp.getWidth() / tolerance;
+            var yMatches = textLocationsByYX.subMap(tp.getY() - overlapTolerance, tp.getY() + overlapTolerance);
             for (var yMatch : yMatches.values()) {
-                var xMatches = yMatch.subMap(tp.getX() - tolerance, tp.getX() + tolerance).values();
+                var xMatches = yMatch.subMap(tp.getX() - overlapTolerance, tp.getX() + overlapTolerance).values();
                 if (xMatches.contains(tp)) {
                     return;
                 }

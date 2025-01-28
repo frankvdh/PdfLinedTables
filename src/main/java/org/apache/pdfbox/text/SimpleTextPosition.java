@@ -122,6 +122,6 @@ public final class SimpleTextPosition
     @Override
     public String toString()
     {
-        return String.format("[%c %.1f, %.1f, width %.1f/%.1f]", unicode, p.x, p.y, width, spaceWidth);
+        return String.format("[%c %.1f]", unicode, p.x);
     }
 }

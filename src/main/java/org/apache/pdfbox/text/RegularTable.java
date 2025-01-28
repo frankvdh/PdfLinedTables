@@ -34,7 +34,7 @@ import java.awt.Color;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.regex.Pattern;
+import java.util.SortedSet;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 
@@ -48,9 +48,6 @@ import org.apache.pdfbox.pdmodel.PDDocument;
  * @author frank
  */
 public class RegularTable extends LinedTableStripper {
-    
-    final private PDDocument doc;
-    private int currPage = -1;
 
     /**
      * Constructor.
@@ -77,48 +74,48 @@ public class RegularTable extends LinedTableStripper {
      * file.
      */
     protected RegularTable(PDDocument document, int extraRotation, boolean suppressDuplicates) throws IOException {
-        super(document, extraRotation, suppressDuplicates);
-        doc = document;
-    }
-    
-    public int getCurrPageNum() {
-        return currPage;
-    }
-    
-    public float getTableBottom() {
-        return endTablePos;
+        super(document, extraRotation, suppressDuplicates, 3);
     }
 
     /**
-     * Parse a tables in the specified PDF file.
+     * Append the section of the table matching the criteria on the current
+     * page.
      *
-     * @param firstPage Page to start table from.
-     * @param headingColour Background colour of heading to search for
-     * @param startY Y coordinate on first page to start from
-     * @param tableEnd Pattern indicating end of table
-     * @param numColumns Number of columns in table
-     * @return table. Each String[] entry contains each row in the table. Each
-     * row is an array of Strings, with one entry for each column in the table.
-     * @throws IOException on file error
+     * Finds the table, and removes extraneous lines, rectangles, and text.
+     * Scans the @rectangles sorted collection for the first rectangle of the
+     * heading colour. Then expands the X,Y limits until it finds the first data
+     * colour rectangle (if any). The bottom of the heading, and therefore the
+     * top of the data, is at this Y coordinate.
+     *
+     * It then extracts text below the heading and between the X,Y bounds, and
+     * scans it for the tableEnd pattern.
+     *
+     * @param headingColour Fill colour of heading, may be null
+     * @param dataColour Fill colour of data, may be null
+     * @param tableEnd Pattern to identify end of table
+     * @return the bounds of the table.
+     *
+     * @throws java.io.IOException for file errors May be overridden if there is
+     * some other mechanism to identify the top of the table.
      */
-    public ArrayList<String[]> extractTable(int firstPage, Color headingColour, float startY, Pattern tableEnd, int numColumns) throws IOException {
-        ArrayList<String[]> result = new ArrayList<>();
-        do {
-            if (currPage != firstPage) {
-                processPage(doc.getPage(firstPage));
-                currPage = firstPage;
+    @Override
+    public void appendToTable(Color headingColour, float startY, int numColumns, ArrayList<String[]> table) throws IOException {
+        SortedSet<TableCell> rects = extractCells(headingColour, startY);
+        if (rects == null) {
+            return;
+        }
+        String[] row = new String[numColumns];
+        int colNum = 0;
+        for (TableCell r : rects) {
+            row[colNum++] = r.getText();
+            if (colNum >= numColumns) {
+                table.add(row);
+                row = new String[numColumns];
+                colNum = 0;
             }
-            LOG.debug("Extracting page {} of {}", currPage + 1, doc.getNumberOfPages());
-            findEndTable(startY, mediaBox.getUpperRightY(), tableEnd);
-            if (!Float.isNaN(endTablePos)) {
-                appendToTable(headingColour, startY, numColumns, result);
-            }
-            if (endTableFound) {
-                return result;
-            }
-            startY = 0;
-            firstPage = currPage + 1;
-        } while (firstPage < doc.getNumberOfPages());
-        return result;
+        }
+        if (colNum > 0) {
+            table.add(row);
+        }
     }
 }
