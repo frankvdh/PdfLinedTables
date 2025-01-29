@@ -763,6 +763,23 @@ public abstract class PDFStreamEngine
 
             // process the decoded glyph
             showGlyph(textRenderingMatrix, font, code, w);
+
+            // calculate the combined displacements
+            float tx;
+            float ty;
+            if (font.isVertical())
+            {
+                tx = 0;
+                ty = w.getY() * fontSize + charSpacing + wordSpacing;
+            }
+            else
+            {
+                tx = (w.getX() * fontSize + charSpacing + wordSpacing) * horizontalScaling;
+                ty = 0;
+            }
+
+            // update the text matrix
+            textMatrix.translate(tx, ty);
         }
     }
 
