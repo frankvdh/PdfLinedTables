@@ -103,8 +103,10 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine implements Close
 
     /**
      * Filled rectangle graphics on the page... used to find table headings.
-     * Stroked rectangles are decomposed into vertical and horizontal lines Top
-     * of page is first
+     * First level is colour, then Y, then X of top-left corner.
+     * Stroked rectangles are decomposed into vertical and horizontal lines.
+     * 
+     * Top of page is first
      *
      */
     final protected TreeMap<Integer, TreeMap<Float, TreeMap<Float, FRectangle>>> rectangles = new TreeMap<>();
@@ -238,10 +240,17 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine implements Close
                 processPage(doc.getPage(firstPage));
                 currPage = firstPage;
             }
+        assert startY >= 0 : "startY < 0";
+        var bounds = new FRectangle(Float.NaN, startY, Float.NaN, mediaBox.getUpperRightY());
+        if (!findTable(headingColour, bounds)) {
+            LOG.error("Table header not found");
+            return null;
+        }
             LOG.debug("Extracting page {} of {}", currPage + 1, doc.getNumberOfPages());
-            findEndTable(startY, mediaBox.getUpperRightY(), tableEnd);
+            endTableFound = findEndTable(bounds, startY, tableEnd, headingColour);
             if (!Float.isNaN(endTablePos)) {
-                appendToTable(headingColour, startY, numColumns, result);
+                bounds.setMaxY(endTablePos);
+                appendToTable(headingColour, numColumns, bounds, result);
             }
             if (endTableFound) {
                 return result;
@@ -273,8 +282,8 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine implements Close
      * @throws java.io.IOException for file errors May be overridden if there is
      * some other mechanism to identify the top of the table.
      */
-    public void appendToTable(Color headingColour, float startY, int numColumns, ArrayList<String[]> table) throws IOException {
-        var rects = extractCells(headingColour, startY);
+    public void appendToTable(Color headingColour, int numColumns, FRectangle bounds, ArrayList<String[]> table) throws IOException {
+        var rects = extractCells(headingColour, bounds);
         if (rects == null) {
             // No table data... table end pattern is before any table
             return;
@@ -286,7 +295,10 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine implements Close
         rects.entrySet().forEach(row -> {
             allCols.addAll(row.getValue().keySet());
         });
-        var bottomRightCell = rects.lastEntry().getValue().lastEntry().getValue();
+        var bottomRow = rects.lastEntry();
+        if (bottomRow == null)
+            return;
+        var bottomRightCell = bottomRow.getValue().lastEntry().getValue();
         allCols.add(bottomRightCell.getMaxX());
         rows.add(bottomRightCell.getMaxX());
 
@@ -340,13 +352,7 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine implements Close
      *
      * @throws java.io.IOException for file errors
      */
-    public TreeMap<Float, TreeMap<Float, TableCell>> extractCells(Color headingColour, float startY) throws IOException {
-        assert startY >= 0 : "startY < 0";
-        var bounds = new FRectangle(Float.NaN, startY, Float.NaN, endTablePos);
-        if (!findTable(headingColour, bounds)) {
-            LOG.error("Table header not found");
-            return null;
-        }
+    public TreeMap<Float, TreeMap<Float, TableCell>> extractCells(Color headingColour, FRectangle bounds) throws IOException {
         // Now have located top & bottom of data in the table, and left & right limits
         // Extract subsets of the lines, rectangles, and text within these limits.
 
@@ -533,18 +539,15 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine implements Close
     private SortedMap<Float, Float> getTopVert(float left, float top, TreeMap<Float, TreeMap<Float, Float>> vert) {
         var topRow = new TreeMap<Float, Float>();
         // Extract lines starting at or above the top of the table
-        for (var itR = vert.entrySet().iterator(); itR.hasNext();) {
-            var rowEntry = itR.next();
-            if (rowEntry.getKey() < left - tolerance) {
+        for (var colEntry : vert.entrySet()) {
+            if (colEntry.getKey() < left - tolerance) {
                 continue;
             }
-            var col = new TreeMap<>(rowEntry.getValue());
+            var col = new TreeMap<>(colEntry.getValue());
             // Remove lines whose bottoms are above the table
-            col.entrySet().removeIf((var e) -> e.getValue() < top + tolerance);
-            if (col.isEmpty()) {
-                itR.remove();
-            } else {
-                var x = rowEntry.getKey();
+            col.entrySet().removeIf((var e) -> e.getValue() < top + tolerance || e.getKey() > top + tolerance);
+            if (!col.isEmpty()) {
+                var x = colEntry.getKey();
                 var v = col.firstEntry();
                 topRow.put(x, v.getValue());
             }
@@ -669,18 +672,17 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine implements Close
     /**
      * Find the end of the current table
      *
-     * @param tableTop
+     * @param bounds  Table-bounding rectangle, minY = table top
      * @param tableEnd Pattern outside the table to search for. If null, the
      * bottom-most horizontal line on the page is assumed to be the bottom of
      * the table
      * @return Y coordinate of bottom-most line
      */
-    protected void findEndTable(float startY, float endY, Pattern tableEnd) {
+    protected boolean findEndTable(FRectangle bounds, float startY, Pattern tableEnd, Color headingColor) {
         LOG.traceEntry("findEndTable \"{}\"", (tableEnd == null ? "null" : tableEnd.toString()));
         // Scan through the text for the endTable delimiter text
-        endTableFound = false;
         if (tableEnd != null) {
-            var rows = textLocationsByYX.subMap(startY, endY);
+            var rows = textLocationsByYX.tailMap(startY);
             for (var c : rows.entrySet()) {
                 endTablePos = c.getKey();
                 // Concatenate all of the text onto entire lines
@@ -689,25 +691,34 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine implements Close
                     line.append(tp.getUnicode());
                 });
                 if (tableEnd.matcher(line.toString()).find()) {
-                    endTableFound = true;
                     LOG.traceExit("findEndTable: {}", endTablePos);
-                    return;
+                    return true;
                 }
             }
             LOG.warn("Table end delimiter \"{}\" not found", tableEnd.toString());
         }
+        if (headingColor != null) {
+            // Assume that the next table heading delimits the bottom of the table
+            var endPos = rectangles.get(headingColor.getRGB()).ceilingKey(bounds.getMinY()+tolerance);
+            if (endPos != null) {
+                endTablePos = endPos;
+                return true;
+            }
+            LOG.warn("No other table heading found");
+            endTablePos = Float.NaN;
+        }
         if (!horizLines.isEmpty()) {
             // Assume that the last horizontal line on the page is the bottom of the table
             endTablePos = horizLines.lastKey();
-            endTableFound = tableEnd == null;
-            if (endTablePos <= startY) {
+            if (endTablePos <= bounds.getMinY()) {
                 LOG.warn("No Table end delimiter specified and no horizontal line below heading");
                 endTablePos = Float.NaN;
             }
-            return;
+            return tableEnd == null;
         }
         LOG.warn("No Table end delimiter specified and no horizontal line found");
         endTablePos = Float.NaN;
+        return false;
     }
 
     /**
@@ -840,14 +851,16 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine implements Close
 
         // Add a rectangle to the rectangles sorted list.
         var rect = new FRectangle(fillColour, null, p0.x, p0.y, p1.x, p1.y);
+        // p0 & p1 may not be minimum and maximum respectively, so use rect to
+        // get left, right, top, bottom instead
         var sameColour = rectangles.computeIfAbsent(fillColour.getRGB(), k -> new TreeMap<>());
-        var row = sameColour.computeIfAbsent(p0.y, k -> new TreeMap<>());
-        if (!row.keySet().contains(p0.x)) {
-            row.put(p0.x, rect);
+        var row = sameColour.computeIfAbsent(rect.getMinY(), k -> new TreeMap<>());
+        if (!row.keySet().contains(rect.getMinX())) {
+            row.put(rect.getMinX(), rect);
         } else {
-            var existing = row.get(p0.x);
-            if (p1.x >= existing.getMaxX() && p1.y >= existing.getMaxY()) {
-                row.replace(p0.x, rect);
+            var existing = row.get(rect.getMinX());
+            if (rect.getMaxX() >= existing.getMaxX() && rect.getMaxY() >= existing.getMaxY()) {
+                row.replace(rect.getMinX(), rect);
             }
         }
         LOG.trace("rectangle added {}", rect);

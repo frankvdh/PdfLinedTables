@@ -38,7 +38,13 @@ public class LinedTableTest {
     @Test
     public void NZMJ() throws IOException {
         var coords = new LinedTable("NZMJ", 1, Color.BLACK, null, true, 0, 1, false, true, true, "\n", 10);
-        strip("AIP/NZMJ.pdf", coords, 2, "RWY", "", "564");
+        strip("AIP/NZMJ.pdf", coords, 3, "RWY", "Gr", "564");
+    }
+    
+    @Test
+    public void NZMF() throws IOException {
+        var coords = new LinedTable("NZMF", 2, Color.BLACK, null, true, 0, 1, false, true, true, "\n", 10);
+        strip("AIP/NZMF_51.1_52.1.pdf", coords, 3, "RWY", "B", "767");
 
 //  LinedTable stripper = new LinedTable("NZKT_51.1_52.1", 2, Pattern.compile("1\\:[234]0.*1\\:[2345][05]"), Pattern.compile("\\d\\d"),
 //    Pattern.compile("LIGHTING|FACILITIES|SUPPLEMENTARY|MINIMA|FATO/TLOF"), '\n', false);
@@ -66,14 +72,6 @@ public class LinedTableTest {
         assertEquals(first, table.get(0)[0]);
         assertEquals(middle, table.get(size / 2)[1]);
         assertEquals(last, table.get(table.size() - 1)[tab.numColumns - 1]);
-        tab.table.stream().map((row) -> {
-            for (String c : row) {
-                System.out.print(c + ", ");
-            }
-            return row;
-        }).forEachOrdered((_item) -> {
-            System.out.println();
-        });
     }
 
 }
