@@ -93,6 +93,8 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
     final private int extraQuadrantRotation;
     final private float tolerance;
     final private boolean leadingSpaces;
+    final private boolean reduceSpaces;
+    final private String lineEnding;
     private final GeneralPath linePath = new GeneralPath();
     private AffineTransform postRotate;
     protected boolean endTableFound;
@@ -118,13 +120,15 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
      * @throws IOException If there is an error loading properties from the
      * file.
      */
-    public LinedTableStripper(PDDocument doc, int extraQuadrantRotation, boolean suppressDuplicates, boolean leadingSpaces, float tolerance) throws IOException {
+    public LinedTableStripper(PDDocument doc, int extraQuadrantRotation, boolean suppressDuplicates, boolean leadingSpaces, boolean reduceSpaces, float tolerance, String lineEnding) throws IOException {
         super(null);
+        this.doc = doc;
         suppressDuplicateOverlappingText = suppressDuplicates;
         this.extraQuadrantRotation = extraQuadrantRotation;
         this.leadingSpaces = leadingSpaces;
+        this.reduceSpaces = reduceSpaces;
         this.tolerance = tolerance;
-        this.doc = doc;
+        this.lineEnding = lineEnding;
         // Set up extra rotation that is not specified in the page
         // Some pages e.g. GEN_3.7.pdf are rotated -90 degrees, but
         // page.getRotation() doesn't know it. This extra rotation is performed
@@ -594,12 +598,13 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
             if (xRange.isEmpty()) {
                 continue;
             }
-            spacesAllowed = leadingSpaces;
+            spacesAllowed = leadingSpaces && lineEnding.charAt(lineEnding.length()-1) != ' ' || !reduceSpaces;
             var prevX = rect.getMinX();
             for (var tp : xRange.values()) {
                 var x = tp.getX();
                 if (spacesAllowed) {
                     var numSpaces = tp.getSpaceWidth() == 0 ? 0 : (int) ((x - prevX) / tp.getSpaceWidth() + 0.5);
+                    if (reduceSpaces && numSpaces > 1) numSpaces = 1;
                     spacesAllowed = numSpaces > 0;
                     if (spacesAllowed && tp.getSpaceWidth() > 0) {
                         sb.repeat(' ', numSpaces);
@@ -609,10 +614,10 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
                 sb.append(tp.getUnicode());
                 spacesAllowed = true;
             }
-            while (sb.charAt(sb.length()-1) == '\n') {
+            while (sb.charAt(sb.length()-1) == ' ') {
                 sb.deleteCharAt(sb.length()-1);
             }
-            sb.append('\n');
+            sb.append(lineEnding);
         }
         return sb.toString().trim();
     }
