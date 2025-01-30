@@ -187,9 +187,8 @@ import java.awt.Color;
 
     @Override
     public String toString() {
-        return String.format("[(%.2f, %.2f), (%.2f, %.2f)]: %s %s %s", minX, minY, maxX, maxY, 
+        return String.format("[(%.2f, %.2f), (%.2f, %.2f)]: %s %s", minX, minY, maxX, maxY, 
                 fillRgb == null ? "null" : String.format("%08x", fillRgb.getRGB()),
                 strokeRgb == null ? "null" : String.format("%08x", strokeRgb.getRGB()));
     }
-
 }

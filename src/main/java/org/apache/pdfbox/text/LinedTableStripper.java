@@ -20,6 +20,8 @@ import java.awt.Color;
 import java.awt.geom.AffineTransform;
 import java.awt.geom.GeneralPath;
 import java.awt.geom.Point2D;
+import java.io.Closeable;
+import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.SortedMap;
@@ -29,6 +31,7 @@ import java.util.TreeSet;
 import java.util.regex.Pattern;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.contentstream.PDFGraphicsStreamEngine;
 import org.apache.pdfbox.cos.COSName;
 import org.apache.pdfbox.pdmodel.PDDocument;
@@ -64,12 +67,13 @@ import org.apache.pdfbox.util.Vector;
  *
  * The normal entry point is a call extractTable() which reads the table via
  * processPage(), finds the start and end of the table start and end of the
- * table on the page, and extracts the cells to an ArrayList. If the end of the 
+ * table on the page, and extracts the cells to an ArrayList. If the end of the
  * table is is process is not found, it continues to the next page.
  *
- * @author @author <a href="mailto:drifter.frank@gmail.com">Frank van der Hulst</a>
+ * @author @author <a href="mailto:drifter.frank@gmail.com">Frank van der
+ * Hulst</a>
  */
-public class LinedTableStripper extends PDFGraphicsStreamEngine {
+public class LinedTableStripper extends PDFGraphicsStreamEngine implements Closeable {
 
     private static final Logger LOG = LogManager.getLogger(LinedTableStripper.class);
     private static final GlyphList GLYPHLIST;
@@ -121,9 +125,10 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
     final private float tolerance;
     final private boolean leadingSpaces;
     final private boolean reduceSpaces;
+    final private boolean removeEmptyRows;
     final private String lineEnding;
     private final GeneralPath linePath = new GeneralPath();
-    private AffineTransform postRotate;
+    private AffineTransform postTransform;
     private boolean endTableFound;
     private float endTablePos;
 
@@ -147,13 +152,14 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
      * @throws IOException If there is an error loading properties from the
      * file.
      */
-    public LinedTableStripper(PDDocument doc, int extraQuadrantRotation, boolean suppressDuplicates, boolean leadingSpaces, boolean reduceSpaces, float tolerance, String lineEnding) throws IOException {
+    public LinedTableStripper(File file, int extraQuadrantRotation, boolean suppressDuplicates, boolean leadingSpaces, boolean reduceSpaces, boolean removeEmptyRows, float tolerance, String lineEnding) throws IOException {
         super(null);
-        this.doc = doc;
+        this.doc = Loader.loadPDF(file);
         suppressDuplicateOverlappingText = suppressDuplicates;
         this.extraQuadrantRotation = extraQuadrantRotation;
         this.leadingSpaces = leadingSpaces;
         this.reduceSpaces = reduceSpaces;
+        this.removeEmptyRows = removeEmptyRows;
         this.tolerance = tolerance;
         this.lineEnding = lineEnding;
         // Set up extra rotation that is not specified in the page
@@ -180,20 +186,20 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
         rectangles.clear();
         textLocationsByYX.clear();
 
-        postRotate = page.getMatrix().createAffineTransform();
+        postTransform = page.getMatrix().createAffineTransform();
         // Some code below depends on the page lower left corner being at (0,0)
         if (mediaBox.getLowerLeftX() != 0 || mediaBox.getLowerLeftY() != 0) {
             LOG.warn("Page is not zero-based: {}", mediaBox);
-            postRotate.translate(-mediaBox.getLowerLeftX(), -mediaBox.getLowerLeftY());
+            postTransform.translate(-mediaBox.getLowerLeftX(), -mediaBox.getLowerLeftY());
         }
         var rotCentre = Math.max(mediaBox.getWidth(), mediaBox.getHeight()) / 2;
-        postRotate.quadrantRotate(extraQuadrantRotation, rotCentre, rotCentre);
+        postTransform.quadrantRotate(extraQuadrantRotation, rotCentre, rotCentre);
         // Also flip the coordinates vertically, so that the coordinates increase
         // down the page, so that rows at the top of the table are output first
-        postRotate.scale(1, -1);
-        postRotate.translate(0, -mediaBox.getUpperRightY());
-        LOG.trace("PostRotate: {}", postRotate);
-        transformRectangle(mediaBox, postRotate);
+        postTransform.scale(1, -1);
+        postTransform.translate(0, -mediaBox.getUpperRightY());
+        LOG.trace("PostRotate: {}", postTransform);
+        transformRectangle(mediaBox, postTransform);
         LOG.debug("Transformed mediaBox: {}", mediaBox);
         super.processPage(page);
     }
@@ -406,7 +412,23 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
             LOG.error("No text in table");
             return null;
         }
-        return buildActualRectangles(horiz, vert, textLocs);
+        var result = buildActualRectangles(horiz, vert, textLocs);
+        if (removeEmptyRows) {
+            for (var it = result.entrySet().iterator(); it.hasNext();) {
+                var row = it.next();
+                var allEmpty = true;
+                for (var col : row.getValue().entrySet()) {
+                    if (!col.getValue().getText().isBlank()) {
+                        allEmpty = false;
+                        break;
+                    }
+                }
+                if (allEmpty) {
+                    it.remove();
+                }
+            }
+        }
+        return result;
     }
 
     /**
@@ -800,16 +822,21 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
     private void addFilledRectangle() throws IOException {
         var fillColour = getNonStrokingColor();
         LOG.traceEntry("addFilledPath: {}, {}", linePath.getBounds(), fillColour);
+        // Coordinates here are already in display space
         var bounds = linePath.getBounds2D();
-        // Ignore cells too small for text
+        var p0 = transformPoint((float) bounds.getMinX(), (float) bounds.getMinY(), postTransform);
+        var p1 = transformPoint((float) bounds.getMaxX(), (float) bounds.getMaxY(), postTransform);
+        // Treat short wide rectangles as linesIgnore cells too small for text
         if (bounds.getHeight() < tolerance || bounds.getWidth() < tolerance) {
-            LOG.trace("Ignored shaded rectangle {} too small for text", bounds);
+            // Ignore cells too small for text
+            if (bounds.getHeight() < tolerance && bounds.getWidth() < tolerance) {
+                LOG.trace("Ignored shaded rectangle {} too small for text", bounds);
+                return;
+            }
+            LOG.trace("Shaded rectangle {} treated as line", bounds);
+            addLine(p0, p1);
             return;
         }
-
-        var p0 = transformPoint((float) bounds.getMinX(), (float) bounds.getMinY(), postRotate);
-        var p1 = transformPoint((float) bounds.getMaxX(), (float) bounds.getMaxY(), postRotate);
-        // Coordinates here are already in display space
 
         // Add a rectangle to the rectangles sorted list.
         var rect = new FRectangle(fillColour, null, p0.x, p0.y, p1.x, p1.y);
@@ -839,7 +866,7 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
         // Coordinates here are already in display space
         // However, there maybe an additional transform done to handle rotated
         // pages without the pageRotation set correctly
-        var pathIt = linePath.getPathIterator(postRotate);
+        var pathIt = linePath.getPathIterator(postTransform);
         var numPoints = 0;
         Point2D.Float prev = null;
         while (!pathIt.isDone()) {
@@ -1059,10 +1086,10 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
     }
 
     /**
-     * Process a glyph from the PDF Stream. 
-     * 
-     * Checks whether to ignore it if it is a duplicate... sometimes boldface
-     * is represented by the same character output twice with a small offset.
+     * Process a glyph from the PDF Stream.
+     *
+     * Checks whether to ignore it if it is a duplicate... sometimes boldface is
+     * represented by the same character output twice with a small offset.
      * Otherwise adds the character to a table of locations.
      *
      * @param string the encoded text
@@ -1070,7 +1097,7 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
      */
     @Override
     protected void showGlyph(Matrix textRenderingMatrix, PDFont font, int code, Vector displacement) throws IOException {
-        var p = transformPoint(textRenderingMatrix.getTranslateX(), textRenderingMatrix.getTranslateY(), postRotate);
+        var p = transformPoint(textRenderingMatrix.getTranslateX(), textRenderingMatrix.getTranslateY(), postTransform);
         var dispX = textRenderingMatrix.getScalingFactorX() * displacement.getX();
         // use our additional glyph list for Unicode mapping
         var text = font.toUnicode(code, GLYPHLIST);
@@ -1118,4 +1145,8 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
     }
 
     // NOTE: there are more methods in PDFStreamEngine which can be overridden here too.
+    @Override
+    public void close() throws IOException {
+        doc.close();
+    }
 }

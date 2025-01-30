@@ -1,18 +1,6 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
+ * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
  */
 package org.apache.pdfbox.text;
 
@@ -23,84 +11,69 @@ import java.nio.file.Paths;
 import java.util.regex.Pattern;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import static org.apache.pdfbox.Loader.loadPDF;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import org.junit.Test;
 
 /**
- * Tests for LinedTableStripper class.
  *
- * PDF documents in the AIP folder are copyright by NZ Civil Aviation Authority
- * so can't be distributed. They can be downloaded from https://www.aip.net.nz/.
- * These documents are updated approximately monthly.
- * .
- * @author @author <a href="mailto:drifter.frank@gmail.com">Frank van der Hulst</a>
+ * @author frank
  */
 public class LinedTableTest {
 
     private static final Logger LOG = LogManager.getLogger(LinedTableTest.class);
 
     @Test
-    public void oneRow() throws IOException {
-        strip("OneRow.pdf", 0, Color.BLACK, null, 0, true, true, "\n", 2, 1, "data1", "data2", "data2");
-    }
-
-    @Test
-    public void Coordinates_firstPage() throws IOException {
-        strip("AIP/NZANR-Aerodrome_Coordinates.pdf", 0, Color.BLACK, null, 0, false, true, "\n", 6, 19, "ALEXANDRA", "HP", "1753031.00E");
-    }
-
-    @Test
-    public void Coordinates() throws IOException {
-        strip("AIP/NZANR-Aerodrome_Coordinates.pdf", 0, Color.BLACK, Pattern.compile("\\*\\*\\*"), 0, false, true, "\n", 6, 215, "ALEXANDRA", "HP", "1735213.00E");
-    }
-
-    @Test
     public void LFZ() throws IOException {
-        strip("AIP/1_03_NZANR_Part_71_Low_Flying_Zones_LFZ.pdf", 0, Color.BLACK, null, 0, false, true, "\n",
-                5, 18, "NZL160", "THAMES", "[Organisation or Authority:] New Plymouth Aero Club,  New Plymouth Airport, RD3, New Plymouth 4373, TEL (06) 755 0500");
-    }
+        var lfz = new LinedTable("LFZ", 1, Color.BLACK, Pattern.compile("\\*\\*\\*"), true, 0, 1, false, true, false, " ", 5);
+        strip("AIP/1_03_NZANR_Part_71_Low_Flying_Zones_LFZ.pdf", lfz, 51, "NZL160", "AHURIRI", "[Organisation or Authority:] Central Otago Flying Club, PO Box 159, Alexandra, TEL (03) 448 9050");
+}
 
     @Test
-    public void QNH() throws IOException {
-        strip("AIP/1_14_NZANR_Part_71_QNH_Zones.pdf", 0, Color.BLACK, null, 0, false, true, "\n",
-                5, 12, "NZQ185", "WEST COAST AREA QNH ZONE", "");
-    }
+    public void Coords() throws IOException {
+        var coords = new LinedTable("Aerodrome Coordinates", 1, Color.BLACK, Pattern.compile("\\*\\*\\*"), true, 0, 1, false, true, false, " ", 6);
+        strip("AIP/NZANR-Aerodrome_Coordinates.pdf", coords, 215, "ALEXANDRA", "HP", "1735213.00E");
+}
 
     @Test
-    public void PLA() throws IOException {
-        strip("AIP/1_04_NZANR_Part_71_Parachute_Landing_Areas_PLA.pdf", 0, Color.BLACK, null, 0, false, true, " ",
-                3, 16, "NZP114", "HAMILTON AERODROME", "[Organisation or Authority:] Using agency: Skydive Queenstown Ltd (trading as Nzone Skydive), PO Box 554, Queenstown 9348, TEL (03) 442 2256");
+    public void NZMJ() throws IOException {
+        var coords = new LinedTable("NZMJ", 1, Color.BLACK, null, true, 0, 1, false, true, true, "\n", 10);
+        strip("AIP/NZMJ.pdf", coords, 2, "RWY", "", "564");
+
+//  LinedTable stripper = new LinedTable("NZKT_51.1_52.1", 2, Pattern.compile("1\\:[234]0.*1\\:[2345][05]"), Pattern.compile("\\d\\d"),
+//    Pattern.compile("LIGHTING|FACILITIES|SUPPLEMENTARY|MINIMA|FATO/TLOF"), '\n', false);
+//
+//  stripper.extractTable("/home/frank/Mapping/AIP/NZKT_51.1_52.1.pdf", 40);
+//  LinedTable stripper
+//    = new LinedTable("MBZ boundaries", 5, Pattern.compile("(?:Identifier.*Sequence.*)"), Pattern.compile("(?:NZB\\d\\d\\d)|(?:\\s*[A-Za-z]{4,})"), Pattern.compile("\\*\\*\\*"));
+        //= new LinedTable("MBZ names", 1, Pattern.compile("(?:Identifier.*Name.*)"), Pattern.compile("NZB\\d\\d\\d.*"), Pattern.compile("\\*\\*\\*"));
+//new LinedTable("VRP", 0, Pattern.compile("\\*\\*\\*"), Pattern.compile("Name.*Latitude.*Longitude"));
+        //    new LinedTable("DME-NZZC", 1, null, Pattern.compile("[A-Z]+.*?[A-Z]+.*?\\d+\\.\\d+[NS].*"), Pattern.compile("\\*\\*\\*"));
+        // new LinedTable("NZD boundaries", 17, Pattern.compile("Identifier.*Sequence.*"), Pattern.compile("(?:NZD\\d\\d\\d)|\\w{4,}"), Pattern.compile("\\*\\*\\*"), ' ');
+//    new LinedTable("VHZ descriptions", 1, null, Pattern.compile("Activity.*or.*Purpose.*"), Pattern.compile("\\*\\*\\*"));
     }
 
-    @Test
-    public void GEN_3_7_firstPage() throws IOException {
-        strip("AIP/GEN_3.7.pdf", 0, new Color(223, 223, 223),
-                null, 1, false, true, "\n", 8,
-                8, "ALL AIRCRAFT", "FIS", "AVBL for IFR ACFT on GND at\nNZAS");
-    }
-
-    @Test
-    public void GEN_3_7_table1() throws IOException {
-        strip("AIP/GEN_3.7.pdf", 0, new Color(223, 223, 223),
-                Pattern.compile("Table\\s?GEN\\s?3.7-2"), 1, false, true, "\n", 8,
-                259, "ALL AIRCRAFT", "FIS", "Nominal range at 10,000 ft: 80 NM\nNote: Terrain shielding may reduce\nAVBL range. ELEV 110 ft");
-    }
-
-    private void strip(String filename, int pageNo, Color hdgColor, Pattern tableEnd, int extraRotation, boolean leadingSpaces, boolean reduceSpaces, String lineEnding,
-            int numColumns,
+    private void strip(String filename, LinedTable tab,
             int size, String first, String middle, String last) throws IOException {
         LOG.info(filename);
         var resourcePath = Paths.get("src", "test", "resources", filename);
         var absolutePath = resourcePath.toFile().getAbsolutePath();
         var file = new File(absolutePath);
-        var stripper = new LinedTableStripper(loadPDF(file), extraRotation, true, leadingSpaces, reduceSpaces, 1, lineEnding);
-        var table = stripper.extractTable(pageNo, hdgColor, extraRotation, tableEnd, numColumns);
+        var stripper = new LinedTableStripper(file, tab.extraQuadrantRotation, tab.suppressDuplicateOverlappingText, tab.leadingSpaces, tab.reduceSpaces, tab.removeEmptyRows, tab.tolerance, tab.lineEnding);
+        var table = stripper.extractTable(tab.firstPageNo, tab.headingColour, 0, tab.endTable, tab.numColumns);
         assertNotNull(table);
         assertEquals(size, table.size());
         assertEquals(first, table.get(0)[0]);
         assertEquals(middle, table.get(size / 2)[1]);
-        assertEquals(last, table.get(table.size() - 1)[numColumns - 1]);
+        assertEquals(last, table.get(table.size() - 1)[tab.numColumns - 1]);
+        tab.table.stream().map((row) -> {
+            for (String c : row) {
+                System.out.print(c + ", ");
+            }
+            return row;
+        }).forEachOrdered((_item) -> {
+            System.out.println();
+        });
     }
+
 }
