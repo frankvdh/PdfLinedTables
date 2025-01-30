@@ -82,7 +82,6 @@ public class LinedTableTest {
         assertEquals(size, table.size());
         assertEquals(first, table.get(0)[0]);
         assertEquals(middle, table.get(size / 2)[1]);
-        log.debug("\"{}\"", table.get(table.size() - 1)[numColumns - 1]);
         assertEquals(last, table.get(table.size() - 1)[numColumns - 1]);
     }
 }

@@ -462,8 +462,7 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
                     }
                     // Now have the top & bottom lines and X limits
                     LOG.trace("{}, {}, {}, {}", left, top, right, bottom);
-                    var rect = new TableCell(left, top, right, bottom);
-                    rect.setText(getRectangleText(rect, tableContents));
+                    TableCell rect = getRectangleText(left, top, right, bottom, tableContents);
                     var row = results.computeIfAbsent(top, k -> new TreeMap<>());
                     row.put(left, rect);
                     LOG.trace("Added \"{}\" {}", rect.getText().replaceAll("\\n", "\\\\\\n"), rect);
@@ -558,7 +557,7 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
             float v1;
             for (var col = 0; col < vSet.size() - 1; col++) {
                 v1 = vSet.ceiling(v0 + tolerance);
-                var result = new TableCell(v0, h1, v1, h0);
+                var result = new TableCell(v0, h1, v1, h0, "");
                 var srcSet = new TreeSet<>(tableContents);
                 srcSet.removeIf((var r) -> !r.intersects(result));
                 if (srcSet.isEmpty()) {
@@ -590,16 +589,16 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
      * @param tableContents
      * @return
      */
-    protected String getRectangleText(FRectangle rect, TreeMap<Float, TreeMap<Float, SimpleTextPosition>> tableContents) {
+    protected TableCell getRectangleText(float x0, float y0, float x1, float y1, TreeMap<Float, TreeMap<Float, SimpleTextPosition>> tableContents) {
         StringBuilder sb = new StringBuilder(100);
-        var yRange = tableContents.subMap(rect.getMinY(), rect.getMaxY());
+        var yRange = tableContents.subMap(y0, y1);
         for (var row : yRange.values()) {
-            var xRange = row.subMap(rect.getMinX(), rect.getMaxX());
+            var xRange = row.subMap(x0, x1);
             if (xRange.isEmpty()) {
                 continue;
             }
             spacesAllowed = leadingSpaces && lineEnding.charAt(lineEnding.length()-1) != ' ' || !reduceSpaces;
-            var prevX = rect.getMinX();
+            var prevX = x0;
             for (var tp : xRange.values()) {
                 var x = tp.getX();
                 if (spacesAllowed) {
@@ -619,7 +618,7 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
             }
             sb.append(lineEnding);
         }
-        return sb.toString().trim();
+        return new TableCell(x0, y0, x1, y1, sb.toString().trim());
     }
 
     /**
@@ -790,8 +789,8 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine {
         var p1 = transformPoint((float) bounds.getMaxX(), (float) bounds.getMaxY(), postRotate);
         // Coordinates here are already in display space
 
-        // Add a rectangle to the appropriate sorted list (horizLines, vertLines, rectangles).
-        FRectangle rect = new FRectangle(fillColour, null, null, p0, p1);
+        // Add a rectangle to the rectangles sorted list.
+        FRectangle rect = new FRectangle(fillColour, null, p0, p1);
         var sameColour = rectangles.computeIfAbsent(fillColour.getRGB(), k -> new TreeMap<>());
         var row = sameColour.computeIfAbsent(p0.y, k -> new TreeMap<>());
         if (!row.keySet().contains(p0.x)) {

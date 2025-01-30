@@ -4,7 +4,6 @@
  */
 package org.apache.pdfbox.text;
 
-import java.awt.Color;
 import java.awt.geom.Point2D;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -26,16 +25,8 @@ public class TableCell extends FRectangle {
      */
     private String text;
 
-    public TableCell(float x, float y) {
-        super(x, y);
-    }
-
-    public TableCell(float x0, float y0, float x1, float y1) {
-        super(Color.WHITE, Color.BLACK, null, x0, y0, x1, y1);
-    }
-
-    public TableCell(FRectangle r, String text) {
-        super(r.getFillColour(), r.getStrokeColour(), r.getStroke(), r.getMinX(), r.getMinY(), r.getMaxX(), r.getMaxY());
+    public TableCell(float x0, float y0, float x1, float y1, String text) {
+        super(null, null, x0, y0, x1, y1);
         this.text = text;
     }
 

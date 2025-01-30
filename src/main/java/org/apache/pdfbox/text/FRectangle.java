@@ -5,7 +5,6 @@
 package org.apache.pdfbox.text;
 
 import java.awt.Color;
-import java.awt.Stroke;
 import java.awt.geom.Point2D;
 
 /*
@@ -24,11 +23,10 @@ import java.awt.geom.Point2D;
  * Instances are sorted according to their maxY and then minX (i.e. top-left corner)
  *
  */
-public class FRectangle implements Comparable<FRectangle> {
+public class FRectangle {
 
     private float minX, minY, maxX, maxY;
     private Color fillRgb, strokeRgb;
-    private Stroke stroke;
 
     public FRectangle() {
         minX = Float.NaN;
@@ -37,31 +35,23 @@ public class FRectangle implements Comparable<FRectangle> {
         maxY = Float.NaN;
     }
 
-    public FRectangle(Color fillColour, Color strokeColour, Stroke stroke) {
-        this();
-        this.fillRgb = fillColour;
-        this.strokeRgb = strokeColour;
-        this.stroke = stroke;
-    }
-
-    public FRectangle(Color fillColour, Color strokeColour, Stroke stroke, Point2D.Float p0, Point2D.Float p1) {
+    public FRectangle(Color fillColour, Color strokeColour, Point2D.Float p0, Point2D.Float p1) {
         this(Math.min(p0.x, p1.x), Math.min(p0.y, p1.y), Math.max(p0.x, p1.x), Math.max(p0.y, p1.y));
-        setColours(fillColour, strokeColour, stroke);
+        setColours(fillColour, strokeColour);
     }
 
-    public FRectangle(Color fillColour, Color strokeColour, Stroke stroke, float x0, float y0, float x1, float y1) {
+    public FRectangle(Color fillColour, Color strokeColour, float x0, float y0, float x1, float y1) {
         this(Math.min(x0, x1), Math.min(y0, y1), Math.max(x0, x1), Math.max(y0, y1));
-        setColours(fillColour, strokeColour, stroke);
+        setColours(fillColour, strokeColour);
     }
 
     public FRectangle(FRectangle src) {
-        this(src.fillRgb, src.strokeRgb, src.stroke, src.minX, src.minY, src.maxX, src.maxY);
+        this(src.fillRgb, src.strokeRgb, src.minX, src.minY, src.maxX, src.maxY);
     }
 
-    final public void setColours(Color fillColour, Color strokeColour, Stroke stroke) {
+    final public void setColours(Color fillColour, Color strokeColour) {
         this.fillRgb = fillColour;
         this.strokeRgb = strokeColour;
-        this.stroke = stroke;
     }
 
     public FRectangle(float x, float y) {
@@ -88,10 +78,6 @@ public class FRectangle implements Comparable<FRectangle> {
 
     public Color getStrokeColour() {
         return strokeRgb;
-    }
-
-    public Stroke getStroke() {
-        return stroke;
     }
 
     public float getWidth() {
@@ -128,13 +114,6 @@ public class FRectangle implements Comparable<FRectangle> {
         maxX = Math.max(x0, x1);
     }
 
-    public void setMin(float x, float y) {
-        minX = x;
-        minY = y;
-        maxX = minX;
-        maxY = minY;
-    }
-
     public void setMaxY(float y) {
         minY = Math.min(y, minY);
         maxY = y;
@@ -163,16 +142,8 @@ public class FRectangle implements Comparable<FRectangle> {
         return max >= minX && min <= maxX;
     }
 
-    public boolean containsY(float y) {
-        return y >= minY && y <= maxY;
-    }
-
     public boolean overlapsY(float min, float max) {
         return max >= minY && min <= maxY;
-    }
-
-    public boolean contains(float x, float y) {
-        return containsX(x) && containsY(y);
     }
 
     /** Check whether this instance intersects with another
@@ -182,31 +153,6 @@ public class FRectangle implements Comparable<FRectangle> {
      */
     public boolean intersects(FRectangle other) {
         return overlapsX(other.minX, other.maxX) && overlapsY(other.minY, other.maxY);
-    }
-
-    /** Intersects this instance with another instances
-     *
-     * @param other
-     */
-    public void intersect(FRectangle other) {
-        if (other.minX > minX) {
-            minX = other.minX;
-        }
-        if (other.minY > minY) {
-            minY = other.minY;
-        }
-        if (other.maxX < maxX) {
-            maxX = other.maxX;
-        }
-        if (other.maxY < maxY) {
-            maxY = other.maxY;
-        }
-        if (minX > maxX) {
-            maxX = minX;
-        }
-        if (minY > maxY) {
-            maxY = minY;
-        }
     }
 
     public void add(float x, float y) {
@@ -238,14 +184,6 @@ public class FRectangle implements Comparable<FRectangle> {
             setMaxY(r.maxY);
         }
     }
-
-   final public FRectangle expand(float x) {
-        minX -= x;
-        minY -= x;
-        maxX += x;
-        maxY += x;
-        return this;
-    }
     
     public float trimX(float x) {
         if (x < minX) {
@@ -260,59 +198,12 @@ public class FRectangle implements Comparable<FRectangle> {
     public float trimY(float y) {
         return (y < minY) ? minY : (y > maxY) ? maxY : y;
     }
-   
-    public void trimX(float min, float max) {
-        if (minX < min) {
-            minX = min;
-        }
-        if (maxX > max) {
-            maxX = max;
-        }
-        if (minX > maxX) {
-            maxX = minX;
-        }
-    }
-
-    public void trimY(float min, float max) {
-        if (minY < min) {
-            minY = min;
-        }
-        if (maxY > max) {
-            maxY = max;
-        }
-        if (minY > maxY) {
-            maxY = minY;
-        }
-    }
-
-    @Override
-    public int compareTo(FRectangle other) {
-        if (this == other) {
-            return 0;
-        }
-        // First compare the tops of the cells... sort ascending
-        if (this.minY > other.minY) {
-            return 1;
-        }
-        if (this.minY < other.minY) {
-            return -1;
-        }
-        // Same top, compare left edges, sort ascending
-        if (this.minX > other.minX) {
-            return 1;
-        }
-        if (this.minX < other.minX) {
-            return -1;
-        }
-        return 0;
-    }
 
     @Override
     public String toString() {
         return String.format("[(%.2f, %.2f), (%.2f, %.2f)]: %s %s %s", minX, minY, maxX, maxY, 
                 fillRgb == null ? "null" : String.format("%08x", fillRgb.getRGB()),
-                strokeRgb == null ? "null" : String.format("%08x", strokeRgb.getRGB()), 
-                stroke == null ? "null" : stroke.toString());
+                strokeRgb == null ? "null" : String.format("%08x", strokeRgb.getRGB()));
     }
 
 }
