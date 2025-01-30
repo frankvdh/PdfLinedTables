@@ -1,63 +1,43 @@
 /*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 package org.apache.pdfbox.text;
 
 import java.awt.Color;
-import java.awt.geom.Point2D;
-
-/*
- *
- * @author frank
- */
 
 /**
- * Utility class to represent a rectangle or vertical or horizontal line.
+ * Utility class to represent a filled and/or stroked rectangle.
  *
- * A horizontal line is a rectangle where minY == maxY.
- * A vertical line is a rectangle where minX == maxX.
- * minX must less tan or equal to maxX
- * minY must less tan or equal to maxY
- * 
- * Instances are sorted according to their maxY and then minX (i.e. top-left corner)
+ * minX must less than or equal to maxX
+ * minY must less than or equal to maxY
  *
+ * @author @author <a href="mailto:drifter.frank@gmail.com">Frank van der Hulst</a>
  */
-public class FRectangle {
+ public class FRectangle {
 
     private float minX, minY, maxX, maxY;
     private Color fillRgb, strokeRgb;
 
-    public FRectangle() {
-        minX = Float.NaN;
-        minY = Float.NaN;
-        maxX = Float.NaN;
-        maxY = Float.NaN;
-    }
-
-    public FRectangle(Color fillColour, Color strokeColour, Point2D.Float p0, Point2D.Float p1) {
-        this(Math.min(p0.x, p1.x), Math.min(p0.y, p1.y), Math.max(p0.x, p1.x), Math.max(p0.y, p1.y));
-        setColours(fillColour, strokeColour);
-    }
-
-    public FRectangle(Color fillColour, Color strokeColour, float x0, float y0, float x1, float y1) {
-        this(Math.min(x0, x1), Math.min(y0, y1), Math.max(x0, x1), Math.max(y0, y1));
-        setColours(fillColour, strokeColour);
-    }
-
-    public FRectangle(FRectangle src) {
-        this(src.fillRgb, src.strokeRgb, src.minX, src.minY, src.maxX, src.maxY);
-    }
-
-    final public void setColours(Color fillColour, Color strokeColour) {
-        this.fillRgb = fillColour;
-        this.strokeRgb = strokeColour;
-    }
-
-    public FRectangle(float x, float y) {
-        this(x, y, x, y);
-    }
-
+    /** Basic constructor
+     *
+     * @param x0
+     * @param y0
+     * @param x1
+     * @param y1
+     */
     public FRectangle(float x0, float y0, float x1, float y1) {
         minX = x0;
         minY = y0;
@@ -65,11 +45,28 @@ public class FRectangle {
         maxY = y1;
     }
 
-    public FRectangle(Point2D.Float p0, Point2D.Float p1) {
-        minX = p0.x;
-        minY = p0.y;
-        maxX = p1.x;
-        maxY = p1.y;
+    /** Full constructor
+     *
+     * @param x0
+     * @param y0
+     * @param x1
+     * @param y1
+     */
+    public FRectangle(Color fillColour, Color strokeColour, float x0, float y0, float x1, float y1) {
+        this(Math.min(x0, x1), Math.min(y0, y1), Math.max(x0, x1), Math.max(y0, y1));
+        this.fillRgb = fillColour;
+        this.strokeRgb = strokeColour;
+    }
+
+    /** Construct a copy
+     *
+     * @param x0
+     * @param y0
+     * @param x1
+     * @param y1
+     */
+    public FRectangle(FRectangle src) {
+        this(src.fillRgb, src.strokeRgb, src.minX, src.minY, src.maxX, src.maxY);
     }
 
     public Color getFillColour() {
@@ -102,11 +99,6 @@ public class FRectangle {
 
     public float getMinY() {
         return minY;
-    }
-
-    public void setY(float y0, float y1) {
-        minY = Math.min(y0, y1);
-        maxY = Math.max(y0, y1);
     }
 
     public void setX(float x0, float x1) {
@@ -186,13 +178,7 @@ public class FRectangle {
     }
     
     public float trimX(float x) {
-        if (x < minX) {
-            return minX;
-        }
-        if (x > maxX) {
-            return maxX;
-        }
-        return x;
+        return (x < minX) ? minX : (x > maxX) ? maxX : x;
     }
     
     public float trimY(float y) {

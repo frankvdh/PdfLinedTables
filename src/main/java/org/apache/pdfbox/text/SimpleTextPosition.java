@@ -20,17 +20,14 @@
  */
 package org.apache.pdfbox.text;
 import java.awt.geom.Point2D;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 
 /**
- * This represents a string and a position on the screen of those characters.
- *
- * @author Ben Litchfield
+ * Represents a character and a position on the page of those characters.
+  *
+ * @author @author <a href="mailto:drifter.frank@gmail.com">Frank van der Hulst</a>
  */
 public final class SimpleTextPosition
 {
-    public static final Logger LOG = LogManager.getLogger(SimpleTextPosition.class);
     private final Point2D.Float p;
     private final float width; 
     private final float spaceWidth; // width of a space, in display units
@@ -48,9 +45,8 @@ public final class SimpleTextPosition
     {
         this.p = p;
         this.width = width;
-        this.spaceWidth = spaceWidth *0.3f;
+        this.spaceWidth = spaceWidth;
         this.unicode = unicode;
-        LOG.trace("'{}', {}, width {}, spaceWidth {}", unicode, p, width, spaceWidth);
     }
 
     /**
