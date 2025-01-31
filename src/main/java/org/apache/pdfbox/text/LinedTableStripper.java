@@ -103,9 +103,9 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine implements Close
 
     /**
      * Filled rectangle graphics on the page... used to find table headings.
-     * First level is colour, then Y, then X of top-left corner.
-     * Stroked rectangles are decomposed into vertical and horizontal lines.
-     * 
+     * First level is colour, then Y, then X of top-left corner. Stroked
+     * rectangles are decomposed into vertical and horizontal lines.
+     *
      * Top of page is first
      *
      */
@@ -135,10 +135,10 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine implements Close
     private float endTablePos;
 
     final private PDDocument doc;
-    private int currPage = -1;
+    private int currPage = Integer.MIN_VALUE;
 
     public int getCurrPageNum() {
-        return currPage;
+        return currPage + 1; // currPage is 0-based, externally pages are 1-based
     }
 
     public float getTableBottom() {
@@ -224,7 +224,7 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine implements Close
     /**
      * Parse a tables in the specified PDF file.
      *
-     * @param firstPage Page to start table from.
+     * @param firstPage Page to start table from. 1-based
      * @param headingColour Background colour of heading to search for
      * @param startY Y coordinate on first page to start from
      * @param tableEnd Pattern indicating end of table
@@ -233,24 +233,25 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine implements Close
      * row is an array of Strings, with one entry for each column in the table.
      * @throws IOException on file error
      */
-    public ArrayList<String[]> extractTable(int firstPage, Color headingColour, float startY, Pattern tableEnd, int numColumns) throws IOException {
+    public ArrayList<String[]> extractTable(int firstPage, float startY, Pattern tableEnd, Color headingColour) throws IOException {
+        firstPage--; // Cjanhe to 0-based page numbering
         var result = new ArrayList<String[]>();
         do {
             if (currPage != firstPage) {
                 processPage(doc.getPage(firstPage));
                 currPage = firstPage;
+             }
+            assert startY >= 0 : "startY < 0";
+            var bounds = new FRectangle(Float.NaN, startY, Float.NaN, mediaBox.getUpperRightY());
+            if (!findTable(bounds, headingColour)) {
+                LOG.error("Table header not found");
+                return null;
             }
-        assert startY >= 0 : "startY < 0";
-        var bounds = new FRectangle(Float.NaN, startY, Float.NaN, mediaBox.getUpperRightY());
-        if (!findTable(headingColour, bounds)) {
-            LOG.error("Table header not found");
-            return null;
-        }
             LOG.debug("Extracting page {} of {}", currPage + 1, doc.getNumberOfPages());
             endTableFound = findEndTable(bounds, startY, tableEnd, headingColour);
             if (!Float.isNaN(endTablePos)) {
                 bounds.setMaxY(endTablePos);
-                appendToTable(headingColour, numColumns, bounds, result);
+                appendToTable(headingColour, bounds, result);
             }
             if (endTableFound) {
                 return result;
@@ -282,25 +283,28 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine implements Close
      * @throws java.io.IOException for file errors May be overridden if there is
      * some other mechanism to identify the top of the table.
      */
-    public void appendToTable(Color headingColour, int numColumns, FRectangle bounds, ArrayList<String[]> table) throws IOException {
+    public boolean appendToTable(Color headingColour, FRectangle bounds, ArrayList<String[]> table) throws IOException {
         var rects = extractCells(headingColour, bounds);
-        if (rects == null) {
+        if (rects == null || rects.isEmpty()) {
             // No table data... table end pattern is before any table
-            return;
+            return false;
         }
 
         // Build lists of rows & columns ordered by their X & Y position
+        // These will be the cell edges of the regular table
         var rows = new TreeSet<Float>(rects.keySet());
         var allCols = new TreeSet<Float>();
         rects.entrySet().forEach(row -> {
             allCols.addAll(row.getValue().keySet());
         });
-        var bottomRow = rects.lastEntry();
-        if (bottomRow == null)
-            return;
-        var bottomRightCell = bottomRow.getValue().lastEntry().getValue();
-        allCols.add(bottomRightCell.getMaxX());
-        rows.add(bottomRightCell.getMaxX());
+        // For a rectangular tablewith rectangular cells, all cells on the 
+        // bottom row must have the same bottom limit. (Some cells on other
+        // rows may also have same bottom edge). Conversely, the rightmost cell 
+        // of the top row must have a right edge on the rightmost bound
+        var bottomRightCell = rects.lastEntry().getValue().firstEntry().getValue();
+        var topRightCell = rects.firstEntry().getValue().lastEntry().getValue();
+        allCols.add(topRightCell.getMaxX());
+        rows.add(bottomRightCell.getMaxY());
 
         var top = rows.removeFirst();
         var tableLeft = allCols.removeFirst();
@@ -308,7 +312,7 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine implements Close
             var right = tableLeft;
             var bottom = rows.removeFirst();
             var srcRowSet = new TreeMap<>(rects.headMap(bottom));
-            var tableRow = new String[numColumns];
+            var tableRow = new String[allCols.size()];
             var cols = new TreeSet<>(allCols);
             var colNum = 0;
             while (!cols.isEmpty()) {
@@ -331,6 +335,7 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine implements Close
             top = bottom;
             table.add(tableRow);
         }
+        return true;
     }
 
     /**
@@ -419,7 +424,7 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine implements Close
             return null;
         }
         var result = buildActualRectangles(horiz, vert, textLocs);
-        if (removeEmptyRows) {
+        if (removeEmptyRows && result != null) {
             for (var it = result.entrySet().iterator(); it.hasNext();) {
                 var row = it.next();
                 var allEmpty = true;
@@ -672,7 +677,7 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine implements Close
     /**
      * Find the end of the current table
      *
-     * @param bounds  Table-bounding rectangle, minY = table top
+     * @param bounds Table-bounding rectangle, minY = table top
      * @param tableEnd Pattern outside the table to search for. If null, the
      * bottom-most horizontal line on the page is assumed to be the bottom of
      * the table
@@ -699,7 +704,7 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine implements Close
         }
         if (headingColor != null) {
             // Assume that the next table heading delimits the bottom of the table
-            var endPos = rectangles.get(headingColor.getRGB()).ceilingKey(bounds.getMinY()+tolerance);
+            var endPos = rectangles.get(headingColor.getRGB()).ceilingKey(bounds.getMinY() + tolerance);
             if (endPos != null) {
                 endTablePos = endPos;
                 return true;
@@ -737,7 +742,7 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine implements Close
      * @throws java.io.IOException for file errors May be overridden if there is
      * some other mechanism to identify the top of the table.
      */
-    protected boolean findTable(Color headingColour, FRectangle bounds) throws IOException {
+    protected boolean findTable(FRectangle bounds, Color headingColour) throws IOException {
         LOG.traceEntry("findTable(\"{}\")", headingColour);
         if (headingColour != null) {
             // Find the location of the table by finding the first rectangle of the right colour

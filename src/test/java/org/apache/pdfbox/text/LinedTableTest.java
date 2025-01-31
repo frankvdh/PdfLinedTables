@@ -25,26 +25,32 @@ public class LinedTableTest {
 
     @Test
     public void LFZ() throws IOException {
-        var lfz = new LinedTable("LFZ", 1, Color.BLACK, Pattern.compile("\\*\\*\\*"), true, 0, 1, false, true, false, " ", 5);
+        var lfz = new LinedTable("LFZ", 1, Color.BLACK, Pattern.compile("\\*\\*\\*"), true, 0, 1, false, true, false, " ");
         strip("AIP/1_03_NZANR_Part_71_Low_Flying_Zones_LFZ.pdf", lfz, 51, "NZL160", "AHURIRI", "[Organisation or Authority:] Central Otago Flying Club, PO Box 159, Alexandra, TEL (03) 448 9050");
 }
 
     @Test
     public void Coords() throws IOException {
-        var coords = new LinedTable("Aerodrome Coordinates", 1, Color.BLACK, Pattern.compile("\\*\\*\\*"), true, 0, 1, false, true, false, " ", 6);
+        var coords = new LinedTable("Aerodrome Coordinates", 1, Color.BLACK, Pattern.compile("\\*\\*\\*"), true, 0, 1, false, true, false, " ");
         strip("AIP/NZANR-Aerodrome_Coordinates.pdf", coords, 215, "ALEXANDRA", "HP", "1735213.00E");
 }
 
     @Test
     public void NZMJ() throws IOException {
-        var coords = new LinedTable("NZMJ", 1, Color.BLACK, null, true, 0, 1, false, true, true, "\n", 10);
+        var coords = new LinedTable("NZMJ", 1, Color.BLACK, null, true, 0, 1, false, true, true, "\n");
         strip("AIP/NZMJ.pdf", coords, 3, "RWY", "Gr", "564");
     }
     
     @Test
     public void NZMF() throws IOException {
-        var coords = new LinedTable("NZMF", 2, Color.BLACK, null, true, 0, 1, false, true, true, "\n", 10);
+        var coords = new LinedTable("NZMF", 2, Color.BLACK, null, true, 0, 1, false, true, true, "\n");
         strip("AIP/NZMF_51.1_52.1.pdf", coords, 3, "RWY", "B", "767");
+    }
+    
+    @Test
+    public void NZPH() throws IOException {
+        var coords = new LinedTable("NZPH", 2, Color.BLACK, null, true, 0, 1, false, true, true, "\n");
+        strip("AIP/NZPH_51.1_52.1.pdf", coords, 3, "RWY", "Gr", "860");
 
 //  LinedTable stripper = new LinedTable("NZKT_51.1_52.1", 2, Pattern.compile("1\\:[234]0.*1\\:[2345][05]"), Pattern.compile("\\d\\d"),
 //    Pattern.compile("LIGHTING|FACILITIES|SUPPLEMENTARY|MINIMA|FATO/TLOF"), '\n', false);
@@ -65,13 +71,12 @@ public class LinedTableTest {
         var resourcePath = Paths.get("src", "test", "resources", filename);
         var absolutePath = resourcePath.toFile().getAbsolutePath();
         var file = new File(absolutePath);
-        var stripper = new LinedTableStripper(file, tab.extraQuadrantRotation, tab.suppressDuplicateOverlappingText, tab.leadingSpaces, tab.reduceSpaces, tab.removeEmptyRows, tab.tolerance, tab.lineEnding);
-        var table = stripper.extractTable(tab.firstPageNo, tab.headingColour, 0, tab.endTable, tab.numColumns);
+        var table = tab.extractTable(file);
         assertNotNull(table);
         assertEquals(size, table.size());
         assertEquals(first, table.get(0)[0]);
         assertEquals(middle, table.get(size / 2)[1]);
-        assertEquals(last, table.get(table.size() - 1)[tab.numColumns - 1]);
+        assertEquals(last, table.getLast()[table.getLast().length- 1]);
     }
 
 }

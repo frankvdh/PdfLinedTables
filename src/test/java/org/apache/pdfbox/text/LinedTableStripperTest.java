@@ -42,71 +42,77 @@ public class LinedTableStripperTest {
 
     @Test
     public void oneRow() throws IOException {
-        strip("OneRow.pdf", 0, Color.BLACK, null, 0, true, true, "\n", 2, 1, "data1", "data2", "data2");
+        strip("OneRow.pdf", 1, Color.BLACK, null, 0, true, true, "\n", 1, "data1", "data2", "data2");
     }
 
     @Test
     public void Coordinates_firstPage() throws IOException {
-        strip("AIP/NZANR-Aerodrome_Coordinates.pdf", 0, Color.BLACK, null, 0, false, true, "\n", 6, 19, "ALEXANDRA", "HP", "1753031.00E");
+        strip("AIP/NZANR-Aerodrome_Coordinates.pdf", 1, Color.BLACK, null, 0, false, true, "\n", 19, "ALEXANDRA", "HP", "1753031.00E");
     }
 
     @Test
     public void Coordinates() throws IOException {
-        strip("AIP/NZANR-Aerodrome_Coordinates.pdf", 0, Color.BLACK, Pattern.compile("\\*\\*\\*"), 0, false, true, "\n", 6, 215, "ALEXANDRA", "HP", "1735213.00E");
+        strip("AIP/NZANR-Aerodrome_Coordinates.pdf", 1, Color.BLACK, Pattern.compile("\\*\\*\\*"), 0, false, true, "\n", 215, "ALEXANDRA", "HP", "1735213.00E");
     }
 
     @Test
     public void LFZ() throws IOException {
-        strip("AIP/1_03_NZANR_Part_71_Low_Flying_Zones_LFZ.pdf", 0, Color.BLACK, null, 0, false, true, "\n",
-                5, 18, "NZL160", "THAMES", "[Organisation or Authority:] New Plymouth Aero Club,  New Plymouth Airport, RD3, New Plymouth 4373, TEL (06) 755 0500");
+        strip("AIP/1_03_NZANR_Part_71_Low_Flying_Zones_LFZ.pdf", 1, Color.BLACK, null, 0, false, true, "\n",
+                18, "NZL160", "THAMES", "[Organisation or Authority:] New Plymouth Aero Club,  New Plymouth Airport, RD3, New Plymouth 4373, TEL (06) 755 0500");
     }
 
     @Test
     public void QNH() throws IOException {
-        strip("AIP/1_14_NZANR_Part_71_QNH_Zones.pdf", 0, Color.BLACK, null, 0, false, true, "\n",
-                5, 12, "NZQ185", "WEST COAST AREA QNH ZONE", "");
+        strip("AIP/1_14_NZANR_Part_71_QNH_Zones.pdf", 1, Color.BLACK, null, 0, false, true, "\n",
+                12, "NZQ185", "WEST COAST AREA QNH ZONE", "");
     }
 
     @Test
     public void PLA() throws IOException {
-        strip("AIP/1_04_NZANR_Part_71_Parachute_Landing_Areas_PLA.pdf", 0, Color.BLACK, null, 0, false, true, " ",
-                3, 16, "NZP114", "HAMILTON AERODROME", "[Organisation or Authority:] Using agency: Skydive Queenstown Ltd (trading as Nzone Skydive), PO Box 554, Queenstown 9348, TEL (03) 442 2256");
+        strip("AIP/1_04_NZANR_Part_71_Parachute_Landing_Areas_PLA.pdf", 1, Color.BLACK, null, 0, false, true, " ",
+                16, "NZP114", "HAMILTON AERODROME", "[Organisation or Authority:] Using agency: Skydive Queenstown Ltd (trading as Nzone Skydive), PO Box 554, Queenstown 9348, TEL (03) 442 2256");
     }
 
     @Test
     public void GEN_3_7_firstPage() throws IOException {
-        strip("AIP/GEN_3.7.pdf", 0, new Color(223, 223, 223),
+        strip("AIP/GEN_3.7.pdf", 1, new Color(223, 223, 223),
                 null, 1, false, true, "\n", 8,
-                8, "ALL AIRCRAFT", "FIS", "AVBL for IFR ACFT on GND at\nNZAS");
+                "ALL AIRCRAFT", "FIS", "AVBL for IFR ACFT on GND at\nNZAS");
     }
 
     @Test
     public void GEN_3_7_table1() throws IOException {
-        strip("AIP/GEN_3.7.pdf", 0, new Color(223, 223, 223),
-                Pattern.compile("Table\\s?GEN\\s?3.7-2"), 1, false, true, "\n", 8,
+        strip("AIP/GEN_3.7.pdf", 1, new Color(223, 223, 223),
+                Pattern.compile("Table\\s?GEN\\s?3.7-2"), 1, false, true, "\n",
                 259, "ALL AIRCRAFT", "FIS", "Nominal range at 10,000 ft: 80 NM\nNote: Terrain shielding may reduce\nAVBL range. ELEV 110 ft");
     }
 
     @Test
-    public void CTA() throws IOException {
-        strip("AIP/1_01_NZANR_Part_71_Controlled_Airspace_CTA.pdf", 0, Color.BLACK,
-                Pattern.compile("\\*\\*\\*"), 0, false, true, " ", 8,
+    public void CtaZones() throws IOException {
+        strip("AIP/1_01_NZANR_Part_71_Controlled_Airspace_CTA.pdf", 1, Color.BLACK,
+                Pattern.compile("\\*\\*\\*"), 0, false, true, " ",
                 123, "NZA132", "NAPIER", "FL");
     }
 
+    @Test
+    public void CtaPoints() throws IOException {
+        strip("AIP/1_01_NZANR_Part_71_Controlled_Airspace_CTA.pdf", 6, new Color(0x66, 0x66, 0x66),
+                Pattern.compile("\\*\\*\\*"), 0, false, true, " ",
+                1260, "NZA132", "1", "");
+    }
+
     private void strip(String filename, int pageNo, Color hdgColor, Pattern tableEnd, int extraRotation, boolean leadingSpaces, boolean reduceSpaces, String lineEnding,
-            int numColumns,
             int size, String first, String middle, String last) throws IOException {
         LOG.info(filename);
         var resourcePath = Paths.get("src", "test", "resources", filename);
         var absolutePath = resourcePath.toFile().getAbsolutePath();
         var file = new File(absolutePath);
         var stripper = new LinedTableStripper(file, extraRotation, true, leadingSpaces, reduceSpaces, false, 1, lineEnding);
-        var table = stripper.extractTable(pageNo, hdgColor, extraRotation, tableEnd, numColumns);
+        var table = stripper.extractTable(pageNo, extraRotation, tableEnd, hdgColor);
         assertNotNull(table);
         assertEquals(size, table.size());
         assertEquals(first, table.get(0)[0]);
         assertEquals(middle, table.get(size / 2)[1]);
-        assertEquals(last, table.get(table.size() - 1)[numColumns - 1]);
+        assertEquals(last, table.getLast()[table.getLast().length - 1]);
     }
 }

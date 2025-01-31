@@ -21,8 +21,6 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.regex.Pattern;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 
 /**
  * Wrapper class to contain the definition of a lined table.
@@ -32,10 +30,7 @@ import org.apache.logging.log4j.Logger;
  */
 public class LinedTable {
 
-    private final static Logger LOG = LogManager.getLogger(LinedTable.class.getSimpleName());
-
     final String name;
-    private LinedTableStripper pageStripper;
     final Color headingColour;
     final Pattern endTable;
     final int firstPageNo;
@@ -46,7 +41,6 @@ public class LinedTable {
     final boolean reduceSpaces;
     final boolean removeEmptyRows;
     final String lineEnding;
-    final int numColumns;
 
     /**
      * ArrayList of rows, one for each row in the result table.
@@ -62,18 +56,20 @@ public class LinedTable {
      * Constructor.
      *
      * @param name
-     * @param heading table Heading Pattern... used to locate the second table
-     * when two tables are on the same page
      * @param pageNo Page to be read -- 1-based.
+     * @param headingColour table Heading Color... used to locate the table
      * @param endTable
      * @param data
      */
-    public LinedTable(String name, int pageNo, Color headingColour, Pattern endTable, boolean suppressDuplicateOverlappingText, int extraQuadrantRotation, int tolerance, boolean leadingSpaces, boolean reduceSpaces, boolean removeEmptyRows, String lineEnding, int numColumns) {
+    public LinedTable(String name, int pageNo, Color headingColour, 
+            Pattern endTable, boolean suppressDuplicateOverlappingText, 
+            int extraQuadrantRotation, int tolerance, boolean leadingSpaces, 
+            boolean reduceSpaces, boolean removeEmptyRows, String lineEnding) {
         this.name = name;
         table = new ArrayList<>(0);
         this.endTable = endTable;
         this.headingColour = headingColour;
-        this.firstPageNo = pageNo - 1;
+        this.firstPageNo = pageNo;
         this.suppressDuplicateOverlappingText = suppressDuplicateOverlappingText;
         this.extraQuadrantRotation = extraQuadrantRotation;
         this.tolerance = tolerance;
@@ -81,28 +77,19 @@ public class LinedTable {
         this.reduceSpaces = reduceSpaces;
         this.removeEmptyRows = removeEmptyRows;
         this.lineEnding = lineEnding;
-        this.numColumns = numColumns;
     }
 
+    /**
+     *
+     * @param file
+     * @return
+     * @throws IOException
+     */
     public ArrayList<String[]> extractTable(File file) throws IOException {
-        pageStripper = new LinedTableStripper(file, extraQuadrantRotation, suppressDuplicateOverlappingText, leadingSpaces, reduceSpaces, removeEmptyRows, tolerance, lineEnding);
-        pageStripper.extractTable(firstPageNo, headingColour, 0, endTable, numColumns);
-        assert table.get(0).length > 2 : "Columns not found for PDF table " + name + ", page " + firstPageNo;
-        pageStripper.close();
-        pageStripper = null;
-        return table;
-    }
-
-    public void close() {
-        if (pageStripper != null) {
-            try {
-                pageStripper.close();
-            } catch (IOException ex) {
-                LOG.error(ex.getMessage(), ex);
-            }
-            pageStripper = null;
+        try (org.apache.pdfbox.text.LinedTableStripper pageStripper = new LinedTableStripper(file, extraQuadrantRotation, suppressDuplicateOverlappingText, leadingSpaces, reduceSpaces, removeEmptyRows, tolerance, lineEnding)) {
+            table = pageStripper.extractTable(firstPageNo, 1, endTable, headingColour);
         }
-        table = null;
+        return table;
     }
 
     @Override
