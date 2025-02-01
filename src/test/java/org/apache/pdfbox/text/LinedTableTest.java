@@ -25,32 +25,47 @@ public class LinedTableTest {
 
     @Test
     public void LFZ() throws IOException {
-        var lfz = new LinedTable("LFZ", 1, Color.BLACK, Pattern.compile("\\*\\*\\*"), true, 0, 1, false, true, false, " ");
-        strip("AIP/1_03_NZANR_Part_71_Low_Flying_Zones_LFZ.pdf", lfz, 51, "NZL160", "AHURIRI", "[Organisation or Authority:] Central Otago Flying Club, PO Box 159, Alexandra, TEL (03) 448 9050");
+        var lfz = new LinedTable("LFZ", 1, Color.BLACK, Pattern.compile("\\*\\*\\*"), true, 0, 1, false, true, false, true, " ");
+        strip("AIP/1_03_NZANR_Part_71_Low_Flying_Zones_LFZ.pdf", lfz, 51, 
+                new TestValue(0, 0, "NZL160"),
+                new TestValue(51/2, 1, "AHURIRI"), 
+                new TestValue(51-1, -1, "[Organisation or Authority:] Central Otago Flying Club, PO Box 159, Alexandra, TEL (03) 448 9050"));
 }
 
     @Test
     public void Coords() throws IOException {
-        var coords = new LinedTable("Aerodrome Coordinates", 1, Color.BLACK, Pattern.compile("\\*\\*\\*"), true, 0, 1, false, true, false, " ");
-        strip("AIP/NZANR-Aerodrome_Coordinates.pdf", coords, 215, "ALEXANDRA", "HP", "1735213.00E");
+        var coords = new LinedTable("Aerodrome Coordinates", 1, Color.BLACK, Pattern.compile("\\*\\*\\*"), true, 0, 1, false, true, false, true, " ");
+        strip("AIP/NZANR-Aerodrome_Coordinates.pdf", coords, 215, 
+                new TestValue(0, 0, "ALEXANDRA"), 
+                new TestValue(215/2, 1, "HP"), 
+                new TestValue(215-1, -1, "1735213.00E"));
 }
 
     @Test
     public void NZMJ() throws IOException {
-        var coords = new LinedTable("NZMJ", 1, Color.BLACK, null, true, 0, 1, false, true, true, "\n");
-        strip("AIP/NZMJ.pdf", coords, 3, "RWY", "Gr", "564");
+        var coords = new LinedTable("NZMJ", 1, Color.BLACK, null, true, 0, 1, false, true, true, true, "\n");
+        strip("AIP/NZMJ.pdf", coords, 3, 
+                new TestValue(0, 0, "RWY"), 
+                new TestValue(3/2, 1, "Gr"), 
+                new TestValue(3-1, -1, "564"));
     }
     
     @Test
     public void NZMF() throws IOException {
-        var coords = new LinedTable("NZMF", 2, Color.BLACK, null, true, 0, 1, false, true, true, "\n");
-        strip("AIP/NZMF_51.1_52.1.pdf", coords, 3, "RWY", "B", "767");
+        var coords = new LinedTable("NZMF", 2, Color.BLACK, null, true, 0, 1, false, true, true, true, "\n");
+        strip("AIP/NZMF_51.1_52.1.pdf", coords, 3, 
+                new TestValue(0, 0, "RWY"), 
+                new TestValue(3/2, 1, "B"), 
+                new TestValue(3-1, -1, "767"));
     }
     
     @Test
     public void NZPH() throws IOException {
-        var coords = new LinedTable("NZPH", 2, Color.BLACK, null, true, 0, 1, false, true, true, "\n");
-        strip("AIP/NZPH_51.1_52.1.pdf", coords, 3, "RWY", "Gr", "860");
+        var coords = new LinedTable("NZPH", 2, Color.BLACK, null, true, 0, 1, false, true, true, true, "\n");
+        strip("AIP/NZPH_51.1_52.1.pdf", coords, 3, 
+                new TestValue(0, 0, "RWY"), 
+                new TestValue(3/2, 1, "Gr"),                 
+                new TestValue(3-1, -1, "860"));
 
 //  LinedTable stripper = new LinedTable("NZKT_51.1_52.1", 2, Pattern.compile("1\\:[234]0.*1\\:[2345][05]"), Pattern.compile("\\d\\d"),
 //    Pattern.compile("LIGHTING|FACILITIES|SUPPLEMENTARY|MINIMA|FATO/TLOF"), '\n', false);
@@ -66,7 +81,7 @@ public class LinedTableTest {
     }
 
     private void strip(String filename, LinedTable tab,
-            int size, String first, String middle, String last) throws IOException {
+            int size, TestValue first, TestValue middle, TestValue last) throws IOException {
         LOG.info(filename);
         var resourcePath = Paths.get("src", "test", "resources", filename);
         var absolutePath = resourcePath.toFile().getAbsolutePath();
@@ -74,9 +89,23 @@ public class LinedTableTest {
         var table = tab.extractTable(file);
         assertNotNull(table);
         assertEquals(size, table.size());
-        assertEquals(first, table.get(0)[0]);
-        assertEquals(middle, table.get(size / 2)[1]);
-        assertEquals(last, table.getLast()[table.getLast().length- 1]);
+        assertEquals(first.getValue(), table.get(first.row)[first.col]);
+        assertEquals(middle.getValue(), table.get(middle.row)[middle.col]);
+         assertEquals(last.getValue(), table.get(last.row)[last.col < 0 ? table.get(last.row).length + last.col: last.col]);
+    }
+    private class TestValue {
+        final int row, col;
+        final String value;
+        
+    public    TestValue(int row, int col, String value) {
+            this.row = row;
+            this.col = col;
+            this.value = value;
+        }
+
+public String getValue() {
+        return value;
+    }
     }
 
 }

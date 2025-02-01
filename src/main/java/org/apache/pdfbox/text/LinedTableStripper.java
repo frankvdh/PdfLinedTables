@@ -664,7 +664,7 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine implements Close
             }
             return xRange;
         }).map(_item -> {
-            while (sb.charAt(sb.length() - 1) == ' ') {
+            while (sb.length() > 0 && sb.charAt(sb.length() - 1) == ' ') {
                 sb.deleteCharAt(sb.length() - 1);
             }
             return _item;

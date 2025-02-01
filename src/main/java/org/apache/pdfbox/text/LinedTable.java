@@ -40,6 +40,7 @@ public class LinedTable {
     final boolean leadingSpaces;
     final boolean reduceSpaces;
     final boolean removeEmptyRows;
+    final boolean startOnNewPage;
     final String lineEnding;
 
     /**
@@ -64,7 +65,8 @@ public class LinedTable {
     public LinedTable(String name, int pageNo, Color headingColour, 
             Pattern endTable, boolean suppressDuplicateOverlappingText, 
             int extraQuadrantRotation, int tolerance, boolean leadingSpaces, 
-            boolean reduceSpaces, boolean removeEmptyRows, String lineEnding) {
+            boolean reduceSpaces, boolean removeEmptyRows, boolean startOnNewPage,
+            String lineEnding) {
         this.name = name;
         table = new ArrayList<>(0);
         this.endTable = endTable;
@@ -77,6 +79,7 @@ public class LinedTable {
         this.reduceSpaces = reduceSpaces;
         this.removeEmptyRows = removeEmptyRows;
         this.lineEnding = lineEnding;
+        this.startOnNewPage = startOnNewPage;
     }
 
     /**
