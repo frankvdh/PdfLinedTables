@@ -35,19 +35,10 @@ public class LinedTableTest {
     @Test
     public void LFZ() throws IOException {
         var lfz = new LinedTable("LFZ", 1, Color.BLACK, Pattern.compile("\\*\\*\\*"), true, 0, 1, false, true, false, true, false, " ");
-        strip("AIP/1_03_NZANR_Part_71_Low_Flying_Zones_LFZ.pdf", lfz, 51, 
+        strip("AIP/1_03_NZANR_Part_71_Low_Flying_Zones_LFZ.pdf", lfz, 52, 
                 new TestValue(0, 0, "NZL160"),
-                new TestValue(51/2, 1, "AHURIRI"), 
-                new TestValue(51-1, -1, "[Organisation or Authority:] Central Otago Flying Club, PO Box 159, Alexandra, TEL (03) 448 9050"));
-}
-
-    @Test
-    public void Coords() throws IOException {
-        var coords = new LinedTable("Aerodrome Coordinates", 1, Color.BLACK, Pattern.compile("\\*\\*\\*"), true, 0, 1, false, true, false, true, false, " ");
-        strip("AIP/NZANR-Aerodrome_Coordinates.pdf", coords, 215, 
-                new TestValue(0, 0, "ALEXANDRA"), 
-                new TestValue(215/2, 1, "HP"), 
-                new TestValue(215-1, -1, "1735213.00E"));
+                new TestValue(52/2, 1, "MOANATUATUA"), 
+                new TestValue(52-1, -1, "[Organisation or Authority:] Central Otago Flying Club, PO Box 159, Alexandra, TEL (03) 448 9050"));
 }
 
     @Test
@@ -79,7 +70,7 @@ public class LinedTableTest {
    
     @Test
     public void NZKT() throws IOException {
-        var coords = new LinedTable("NZPH", 2, Color.BLACK, null, true, 0, 1, false, true, true, true, false, "\n");
+        var coords = new LinedTable("NZKT", 2, Color.BLACK, null, true, 0, 1, false, true, true, true, false, "\n");
         strip("AIP/NZKT_51.1_52.1.pdf", coords, 4, 
                 new TestValue(0, 0, "RWY"), 
                 new TestValue(4/2, 1, "B"),                 
@@ -98,10 +89,10 @@ public class LinedTableTest {
     @Test
     public void Coordinates() throws IOException {
         var def = new LinedTable("Coordinates", 1, Color.BLACK, Pattern.compile("\\*\\*\\*"), true, 0, 1, false, true, true, true, false, "\n");
-        strip("AIP/NZANR-Aerodrome_Coordinates.pdf",def, 215, 
+        strip("AIP/NZANR-Aerodrome_Coordinates.pdf",def, 218, 
                 new TestValue(0, 0, "ALEXANDRA"), 
-                new TestValue(215/2, 1, "HP"), 
-                new TestValue(215-1, -1, "1735213.00E"));
+                new TestValue(218/2, 1, "HP"), 
+                new TestValue(218-1, -1, "1735213.00E"));
     }
 
     @Test
@@ -152,24 +143,24 @@ public class LinedTableTest {
     @Test
     public void CtaZones() throws IOException {
         var def = new LinedTable("CTA zones", 1, Color.BLACK, Pattern.compile("\\*\\*\\*"), true, 0, 1, false, true, true, true, false, " ");
-        strip("AIP/1_01_NZANR_Part_71_Controlled_Airspace_CTA.pdf", def, 123, 
+        strip("AIP/1_01_NZANR_Part_71_Controlled_Airspace_CTA.pdf", def, 125, 
                 new TestValue(0, 0, "NZA132"), 
-                new TestValue(123/2, 1, "NAPIER"), 
-                new TestValue(123-1, -1, "FL"));
+                new TestValue(125/2, 1, "NAPIER"), 
+                new TestValue(125-1, -1, "FL"));
     }
 
     @Test
     public void CtaPoints() throws IOException {
-        var def = new LinedTable("CTA points", 6, new Color(0x66, 0x66, 0x66), Pattern.compile("\\*\\*\\*"), true, 0, 1, false, true, true, true, false, " ");
-        strip("AIP/1_01_NZANR_Part_71_Controlled_Airspace_CTA.pdf", def, 1260, 
+        var def = new LinedTable("CTA points", 7, new Color(0x66, 0x66, 0x66), Pattern.compile("\\*\\*\\*"), true, 0, 1, false, true, true, true, false, " ");
+        strip("AIP/1_01_NZANR_Part_71_Controlled_Airspace_CTA.pdf", def, 1281, 
                 new TestValue(0, 0, "NZA132"), 
-                new TestValue(1260/2, 1, "1"), 
-                new TestValue(1260-1, -1, ""));
+                new TestValue(1281/2, 1, "3"), 
+                new TestValue(1281-1, -1, ""));
     }  
 
     private void strip(String filename, LinedTable tab,
             int size, TestValue first, TestValue middle, TestValue last) throws IOException {
-        LOG.info(filename);
+        LOG.info("Table {}", tab.name);
         var resourcePath = Paths.get("src", "test", "resources", filename);
         var absolutePath = resourcePath.toFile().getAbsolutePath();
         var file = new File(absolutePath);

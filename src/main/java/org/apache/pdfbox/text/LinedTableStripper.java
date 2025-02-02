@@ -234,13 +234,20 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine implements Close
             assert startY >= 0 : "startY < 0";
             var bounds = new FRectangle(Float.NaN, startY, Float.NaN, mediaBox.getUpperRightY());
             if (!findTable(bounds, headingColour)) {
-                LOG.error("Table header not found");
-                return null;
+                // Heading not found... search for end because there may be 
+                // a delimiter on a page by itself (e.g. LFZ 28Nov24)
+                endTableFound = findEndTable(bounds, tableEnd, headingColour);
+                if (!endTableFound) {
+                    LOG.error("Table header not found");
+                }
+                return result;
             }
-            LOG.debug("Extracting page {} of {} from {}", currPage + 1, doc.getNumberOfPages(), bounds.getMinY());
+            // Search for end from bottom of heading, so that detecting
+            // the end of the current table by the heading of the next is possible
             endTableFound = findEndTable(bounds, tableEnd, headingColour);
             if (!Float.isNaN(endTablePos)) {
                 bounds.setMaxY(endTablePos);
+                LOG.debug("Extracting page {} of {} from {}", currPage + 1, doc.getNumberOfPages(), bounds.getMinY());
                 var table = getTable(headingColour, bounds);
                 if (table == null) {
                     return result;
@@ -709,12 +716,12 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine implements Close
                     line.append(tp.getUnicode());
                 });
                 if (tableEnd.matcher(line.toString()).find()) {
-                endTablePos = c.getKey();
+                    endTablePos = c.getKey();
                     LOG.traceExit("findEndTable: {}", endTablePos);
                     return true;
                 }
             }
-            LOG.warn("Table end delimiter \"{}\" not found", tableEnd.toString());
+            LOG.debug("Page {}: Table end delimiter \"{}\" not found", currPage, tableEnd.toString());
         }
 
         if (headingColor != null) {
@@ -739,7 +746,7 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine implements Close
                 endTablePos = endPos;
                 return true;
             } else {
-                LOG.warn("No other table heading found");
+                LOG.debug("Page {}: No other table heading found", currPage);
                 endTablePos = bounds.getMaxY();
             }
         }
@@ -750,7 +757,7 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine implements Close
             endTablePos = linePos;
             return tableEnd == null;
         }
-        LOG.error("No Table end delimiter specified, heading at {}, {} found, no horizontal line between", bounds.getMinY(), endTablePos);
+        LOG.error("Page {}: No Table end delimiter specified, heading at {}, {} found, no horizontal line between", currPage, bounds.getMinY(), endTablePos);
         endTablePos = bounds.getMaxY();
         return false;
     }
@@ -777,7 +784,7 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine implements Close
             // Find the location of the table by finding the first rectangle of the right colour
             var sameColour = rectangles.get(headingColour.getRGB());
             if (sameColour == null || sameColour.isEmpty()) {
-                LOG.error("No rectangles found with colour {}", headingColour.toString());
+                LOG.debug("No rectangles found with colour {}", headingColour.toString());
                 return false;
             } else {
                 var hdgY = sameColour.ceilingEntry(bounds.getMinY());
@@ -1111,22 +1118,22 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine implements Close
 
     @Override
     public void drawImage(PDImage pdImage) throws IOException {
-        LOG.warn("{} Image {} by {} at {}, {} ignored", pdImage.getSuffix(), pdImage.getWidth(), pdImage.getHeight(), pdImage.getImage().getMinX(), pdImage.getImage().getMinY());
+        LOG.debug("{} Image {} by {} at {}, {} ignored", pdImage.getSuffix(), pdImage.getWidth(), pdImage.getHeight(), pdImage.getImage().getMinX(), pdImage.getImage().getMinY());
     }
 
     @Override
     public void showForm(PDFormXObject form) throws IOException {
-        LOG.warn("Form ignored {}", form.getBBox());
+        LOG.debug("Form ignored {}", form.getBBox());
     }
 
     @Override
     public void shadingFill(COSName shadingName) throws IOException {
-        LOG.warn("shadingFill ignored {}", shadingName);
+        LOG.debug("shadingFill ignored {}", shadingName);
     }
 
     @Override
     public void showAnnotation(PDAnnotation annotation) throws IOException {
-        LOG.warn("Annotation ignored {}", annotation.getRectangle());
+        LOG.debug("Annotation ignored {}", annotation.getRectangle());
     }
 
     /**

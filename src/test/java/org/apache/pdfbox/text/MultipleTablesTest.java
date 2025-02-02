@@ -34,25 +34,27 @@ public class MultipleTablesTest {
                 new LinedTable("VOR-NZZC", -1, Color.BLACK, Pattern.compile("\\*\\*\\*"), true, 0, 1, false, true, true, true, false, " "),
                 new LinedTable("VOR-NZZO", -1, Color.BLACK, Pattern.compile("\\*\\*\\*"), true, 0, 1, false, true, true, true, false, " "));
         strip("AIP/3_06_NZANR_Part_95_Navaids.pdf", mt,
-                new int[]{43, 6, 19, 15, 16, 5},
+                new int[]{43, 6, 19, 14, 16, 5},
                 new TestValue[][]{
                     new TestValue[]{new TestValue(0, 0, "AUCKLAND"),
-                        new TestValue(43 / 2, 1, "1731428.20E"),
+                        new TestValue(21, 0, "KAITAIA"),
+                        new TestValue(21, 1, "KT"),
+                        new TestValue(21, 4, "105X"),
                         new TestValue(43 - 1, -1, "MHZ")},
                     new TestValue[]{new TestValue(0, 0, "FALEOLO"),
-                        new TestValue(6 / 2, 1, "1695457.24W"),
+                        new TestValue(6 / 2, 1, "NU"),
                         new TestValue(6 - 1, -1, "")},
                     new TestValue[]{new TestValue(0, 0, "TAUPO"),
-                        new TestValue(19 / 2, 1, "1744941.50E"),
+                        new TestValue(19 / 2, 1, "NL"),
                         new TestValue(19 - 1, -1, "KHZ")},
                     new TestValue[]{new TestValue(0, 0, "AITUTAKI"),
-                        new TestValue(15 / 2, 1, "1675515.00E"),
-                        new TestValue(15 - 1, -1, "KHZ")},
+                        new TestValue(14 / 2, 1, "NF"),
+                        new TestValue(14 - 1, -1, "KHZ")},
                     new TestValue[]{new TestValue(0, 0, "AUCKLAND"),
-                        new TestValue(16 / 2, 1, "1752331.05E"),
+                        new TestValue(16 / 2, 1, "OH"),
                         new TestValue(16 - 1, -1, "MHZ")},
                     new TestValue[]{new TestValue(0, 0, "FALEOLO"),
-                        new TestValue(5 / 2, 1, "1594852.00W"),
+                        new TestValue(5 / 2, 1, "RG"),
                         new TestValue(5 - 1, -1, "MHZ")}});
     }
 
@@ -62,14 +64,14 @@ public class MultipleTablesTest {
                 new LinedTable("CTA zones", 1, Color.BLACK, Pattern.compile("\\*\\*\\*"), true, 0, 1, false, true, true, true, false, " "),
                 new LinedTable("CTA points", -1, new Color(0x66, 0x66, 0x66), Pattern.compile("\\*\\*\\*"), true, 0, 1, false, true, true, true, false, " "));
         strip("AIP/1_01_NZANR_Part_71_Controlled_Airspace_CTA.pdf", mt,
-                new int[]{123, 1260},
+                new int[]{125, 1281},
                 new TestValue[][]{
                     new TestValue[]{new TestValue(0, 0, "NZA132"),
-                        new TestValue(123 / 2, 1, "9500"),
-                        new TestValue(123 - 1, -1, "FL")},
+                        new TestValue(123 / 2, 1, "NAPIER"),
+                        new TestValue(123 - 1, -1, "FT")},
                     new TestValue[]{new TestValue(0, 0, "NZA132"),
-                        new TestValue(1260 / 2, 1, "GRC"),
-                        new TestValue(1260 - 1, -1, "")}}
+                        new TestValue(1281 / 2, 5, "GRC"),
+                        new TestValue(1281 - 1, -1, "")}}
         );
     }
 
@@ -79,14 +81,14 @@ public class MultipleTablesTest {
                 new LinedTable("LFZ zones", 1, Color.BLACK, Pattern.compile("\\*\\*\\*"), true, 0, 1, false, true, true, true, false, " "),
                 new LinedTable("LFZ points", -1, new Color(0x66, 0x66, 0x66), Pattern.compile("\\*\\*\\*"), true, 0, 1, false, true, true, true, false, " "));
         strip("AIP/1_03_NZANR_Part_71_Low_Flying_Zones_LFZ.pdf", mt,
-                new int[]{51, 307},
+                new int[]{52, 322},
                 new TestValue[][]{
                     new TestValue[]{new TestValue(0, 0, "NZL160"),
-                        new TestValue(51 / 2, 1, "500"),
-                        new TestValue(51 - 1, -1, "[Organisation or Authority:] Central Otago Flying Club, PO Box 159, Alexandra, TEL (03) 448 9050")},
+                        new TestValue(52 / 2, 1, "MOANATUATUA"),
+                        new TestValue(52 - 1, -1, "[Organisation or Authority:] Central Otago Flying Club, PO Box 159, Alexandra, TEL (03) 448 9050")},
                     new TestValue[]{new TestValue(0, 0, "NZL160"),
-                        new TestValue(307 / 2, 1, "384516.40S"),
-                        new TestValue(307 - 1, -1, "FNT")}}
+                        new TestValue(322 / 2, 3, "410140.20S"),
+                        new TestValue(322 - 1, -1, "FNT")}}
         );
     }
 
@@ -99,10 +101,10 @@ public class MultipleTablesTest {
                 new int[]{45, 311},
                 new TestValue[][]{
                     new TestValue[]{new TestValue(0, 0, "NZG152"),
-                        new TestValue(45 / 2, 1, ""),
+                        new TestValue(45 / 2, 1, "FEILDING"),
                         new TestValue(45 - 1, -1, "[Active:] By ATC approval.")},
                     new TestValue[]{new TestValue(0, 0, "NZG152"),
-                        new TestValue(311 / 2, 1, "GRC"),
+                        new TestValue(311 / 2, 5, "GRC"),
                         new TestValue(311 - 1, -1, "")}}
         );
     }
@@ -157,15 +159,15 @@ public class MultipleTablesTest {
                 new int[]{5, 4, 1},
                 new TestValue[][]{
                     new TestValue[]{new TestValue(0, 0, "NZV010"),
-                        new TestValue(5 / 2, 1, "9500"),
+                        new TestValue(5 / 2, 2, "9500"),
                         new TestValue(5 - 1, -1, "[Activity or Purpose:]\nWhen standard volcanic activity level = 1\nFor increased volcanic activity the following apply when notified by NOTAM:\nActivity level 2 Radius 8 NM Upper limit FL150\nActivity level 3 Radius 16 NM Upper limit FL330\nActivity level 4 Radius 27 NM Upper limit FL480\nActivity level 5 Radius 50 NM Upper limit FL660")},
                     new TestValue[]{
                         new TestValue(0, 0, "NZV215"),
-                        new TestValue(4 / 2, 1, "1753804.20E"),
+                        new TestValue(4 / 2, 3, "1753804.20E"),
                         new TestValue(4 - 1, -1, "NM")},
                     new TestValue[]{
                         new TestValue(0, 0, "NZV010"),
-                        new TestValue(0, 1, "1775460.00W"),
+                        new TestValue(0, 3, "1775460.00W"),
                         new TestValue(0, -1, "NM")}}
         );
     }
@@ -178,6 +180,7 @@ public class MultipleTablesTest {
         var file = new File(absolutePath);
         mt.extractTables(file);
         for (var i = 0; i < mt.tables.length; i++) {
+            LOG.info("Table {}", mt.tables[i].name);
             var table = mt.tables[i].table;
             assertNotNull(table);
             assertEquals(size[i], table.size());

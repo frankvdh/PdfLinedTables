@@ -57,6 +57,10 @@ public class MultipleTables {
         tables = tabs;
     }
 
+    public LinedTable getTable(int n) {
+        return tables[n];
+    }
+    
     /**
      * Parse all tables in the specified PDF file.
      *
