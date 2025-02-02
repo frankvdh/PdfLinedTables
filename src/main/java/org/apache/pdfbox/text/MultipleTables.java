@@ -16,8 +16,13 @@
  */
 package org.apache.pdfbox.text;
 
+import java.io.File;
+import java.io.IOException;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 /**
- * Extract data from specified tables in the PDF file.
+ * Extract data from specified multiple tables in the PDF file.
  *
  * The layout of each table is defined by a LinedTable object.
  *
@@ -30,16 +35,12 @@ package org.apache.pdfbox.text;
  * This is by no means a complete solution to extracting data tables from PDF
  * files.
  *
+ * Tables may start on a new page, or they may be further down the same page.
+ *
  * @see PDFTable
  *
  * @author <a href="mailto:drifter.frank@gmail.com">Frank van der Hulst</a>
  */
-import java.io.File;
-import java.io.IOException;
-import java.util.ArrayList;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-
 public class MultipleTables {
 
     private static final Logger LOG = LogManager.getLogger(MultipleTables.class);
@@ -64,25 +65,25 @@ public class MultipleTables {
      * table.
      * @throws IOException
      */
-    public ArrayList<ArrayList<String[]>> extractTables(File file) throws IOException {
-        var results = new ArrayList<ArrayList<String[]>>(tables.length);
-        try (var stripper = new LinedTableStripper(file, tables[0].extraQuadrantRotation, tables[0].suppressDuplicateOverlappingText, tables[0].leadingSpaces, tables[0].reduceSpaces, tables[0].removeEmptyRows, tables[0].tolerance, tables[0].lineEnding)) {
-            var nextPage = tables[0].firstPageNo;
-            var startY = 0f;
+    public void extractTables(File file) throws IOException {
+        try (var stripper = new LinedTableStripper(file)) {
+            var nextPage = tables[0].firstPageNo + (tables[0].startOnNewPage ? -1 : 0);
+            float startY;
             for (var t : tables) {
                 LOG.debug("Reading " + t.name);
+                stripper.setDefinition(t);
+                if (t.startOnNewPage) {
+                    startY = 0f;
+                    nextPage++;
+                } else {
+                    startY = stripper.getTableBottom();
+                }
                 t.table = stripper.extractTable(t.firstPageNo < 1 ? nextPage : t.firstPageNo, startY, t.endTable, t.headingColour);
                 if (t.table == null || t.table.isEmpty()) {
                     LOG.error("No table for {}, page {}", t.name, nextPage);
-                    results.add(null);
-                } else {
-                    results.add(t.table);
-                    assert t.table.get(0).length > 2 : "Columns not found for PDF table " + t.name + ", page " + nextPage;
-                }
-                startY = 0f;
-                nextPage = stripper.getCurrPageNum() + 1;
+               }
+                nextPage = stripper.getCurrPageNum();
             }
         }
-        return results;
     }
 }

@@ -42,6 +42,7 @@ public class LinedTable {
     final boolean removeEmptyRows;
     final boolean startOnNewPage;
     final String lineEnding;
+    final boolean mergeWrappedRows;
 
     /**
      * ArrayList of rows, one for each row in the result table.
@@ -62,10 +63,11 @@ public class LinedTable {
      * @param endTable
      * @param data
      */
-    public LinedTable(String name, int pageNo, Color headingColour, 
-            Pattern endTable, boolean suppressDuplicateOverlappingText, 
-            int extraQuadrantRotation, int tolerance, boolean leadingSpaces, 
+    public LinedTable(String name, int pageNo, Color headingColour,
+            Pattern endTable, boolean suppressDuplicateOverlappingText,
+            int extraQuadrantRotation, int tolerance, boolean leadingSpaces,
             boolean reduceSpaces, boolean removeEmptyRows, boolean startOnNewPage,
+            boolean mergeWrappedRows,
             String lineEnding) {
         this.name = name;
         table = new ArrayList<>(0);
@@ -80,6 +82,8 @@ public class LinedTable {
         this.removeEmptyRows = removeEmptyRows;
         this.lineEnding = lineEnding;
         this.startOnNewPage = startOnNewPage;
+        this.mergeWrappedRows = mergeWrappedRows;
+
     }
 
     /**
@@ -89,8 +93,9 @@ public class LinedTable {
      * @throws IOException
      */
     public ArrayList<String[]> extractTable(File file) throws IOException {
-        try (org.apache.pdfbox.text.LinedTableStripper pageStripper = new LinedTableStripper(file, extraQuadrantRotation, suppressDuplicateOverlappingText, leadingSpaces, reduceSpaces, removeEmptyRows, tolerance, lineEnding)) {
-            table = pageStripper.extractTable(firstPageNo, 1, endTable, headingColour);
+        try (LinedTableStripper stripper = new LinedTableStripper(file)) {
+            stripper.setDefinition(this);
+            table = stripper.extractTable(firstPageNo, 1, endTable, headingColour);
         }
         return table;
     }

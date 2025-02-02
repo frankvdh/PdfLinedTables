@@ -24,8 +24,17 @@ public class LinedTableTest {
     private static final Logger LOG = LogManager.getLogger(LinedTableTest.class);
 
     @Test
+    public void oneRow() throws IOException {
+        var def = new LinedTable("one row", 1, Color.BLACK, null, true, 0, 1, false, true, true, true, false, "\n");
+        strip("OneRow.pdf", def, 1, 
+                new TestValue(0, 0, "data1"), 
+                new TestValue(1/2, 1, "data2"), 
+                new TestValue(1-1, -1, "data2"));
+    }
+
+    @Test
     public void LFZ() throws IOException {
-        var lfz = new LinedTable("LFZ", 1, Color.BLACK, Pattern.compile("\\*\\*\\*"), true, 0, 1, false, true, false, true, " ");
+        var lfz = new LinedTable("LFZ", 1, Color.BLACK, Pattern.compile("\\*\\*\\*"), true, 0, 1, false, true, false, true, false, " ");
         strip("AIP/1_03_NZANR_Part_71_Low_Flying_Zones_LFZ.pdf", lfz, 51, 
                 new TestValue(0, 0, "NZL160"),
                 new TestValue(51/2, 1, "AHURIRI"), 
@@ -34,7 +43,7 @@ public class LinedTableTest {
 
     @Test
     public void Coords() throws IOException {
-        var coords = new LinedTable("Aerodrome Coordinates", 1, Color.BLACK, Pattern.compile("\\*\\*\\*"), true, 0, 1, false, true, false, true, " ");
+        var coords = new LinedTable("Aerodrome Coordinates", 1, Color.BLACK, Pattern.compile("\\*\\*\\*"), true, 0, 1, false, true, false, true, false, " ");
         strip("AIP/NZANR-Aerodrome_Coordinates.pdf", coords, 215, 
                 new TestValue(0, 0, "ALEXANDRA"), 
                 new TestValue(215/2, 1, "HP"), 
@@ -43,7 +52,7 @@ public class LinedTableTest {
 
     @Test
     public void NZMJ() throws IOException {
-        var coords = new LinedTable("NZMJ", 1, Color.BLACK, null, true, 0, 1, false, true, true, true, "\n");
+        var coords = new LinedTable("NZMJ", 1, Color.BLACK, null, true, 0, 1, false, true, true, true, false, "\n");
         strip("AIP/NZMJ.pdf", coords, 3, 
                 new TestValue(0, 0, "RWY"), 
                 new TestValue(3/2, 1, "Gr"), 
@@ -52,7 +61,7 @@ public class LinedTableTest {
     
     @Test
     public void NZMF() throws IOException {
-        var coords = new LinedTable("NZMF", 2, Color.BLACK, null, true, 0, 1, false, true, true, true, "\n");
+        var coords = new LinedTable("NZMF", 2, Color.BLACK, null, true, 0, 1, false, true, true, true, false, "\n");
         strip("AIP/NZMF_51.1_52.1.pdf", coords, 3, 
                 new TestValue(0, 0, "RWY"), 
                 new TestValue(3/2, 1, "B"), 
@@ -61,11 +70,84 @@ public class LinedTableTest {
     
     @Test
     public void NZPH() throws IOException {
-        var coords = new LinedTable("NZPH", 2, Color.BLACK, null, true, 0, 1, false, true, true, true, "\n");
+        var coords = new LinedTable("NZPH", 2, Color.BLACK, null, true, 0, 1, false, true, true, true, false, "\n");
         strip("AIP/NZPH_51.1_52.1.pdf", coords, 3, 
                 new TestValue(0, 0, "RWY"), 
                 new TestValue(3/2, 1, "Gr"),                 
                 new TestValue(3-1, -1, "860"));
+}
+
+    @Test
+    public void Coordinates_firstPage() throws IOException {
+        var def = new LinedTable("Coordinates 1st page", 1, Color.BLACK, null, true, 0, 1, false, true, true, true, false, "\n");
+         strip("AIP/NZANR-Aerodrome_Coordinates.pdf", def, 19, 
+                new TestValue(0, 0, "ALEXANDRA"), 
+                new TestValue(19/2, 1, "HP"), 
+                new TestValue(19-1, -1, "1753031.00E"));
+    }
+
+    @Test
+    public void Coordinates() throws IOException {
+        var def = new LinedTable("Coordinates", 1, Color.BLACK, Pattern.compile("\\*\\*\\*"), true, 0, 1, false, true, true, true, false, "\n");
+        strip("AIP/NZANR-Aerodrome_Coordinates.pdf",def, 215, 
+                new TestValue(0, 0, "ALEXANDRA"), 
+                new TestValue(215/2, 1, "HP"), 
+                new TestValue(215-1, -1, "1735213.00E"));
+    }
+
+    @Test
+    public void QNH() throws IOException {
+        var def = new LinedTable("QNH", 1, Color.BLACK, null, true, 0, 1, false, true, true, true, false, "\n");
+        strip("AIP/1_14_NZANR_Part_71_QNH_Zones.pdf", def,
+                12, new TestValue(0, 0, "NZQ185"), 
+                new TestValue(12/2, 1, "WEST COAST AREA QNH ZONE"), 
+                new TestValue(12-1, -1, ""));
+    }
+
+    @Test
+    public void PLA() throws IOException {
+        var def = new LinedTable("PLA", 1, Color.BLACK, null, true, 0, 1, false, true, true, true, false, " ");
+        strip("AIP/1_04_NZANR_Part_71_Parachute_Landing_Areas_PLA.pdf", def,
+                16, new TestValue(0, 0, "NZP114"), 
+                new TestValue(16/2, 1, "HAMILTON AERODROME"), 
+                new TestValue(16-1, -1, "[Organisation or Authority:] Using agency: Skydive Queenstown Ltd (trading as Nzone Skydive), PO Box 554, Queenstown 9348, TEL (03) 442 2256"));
+    }
+
+    @Test
+    public void GEN_3_7_firstPage() throws IOException {
+        var def = new LinedTable("GEN 3.7 page 1", 1, new Color(223, 223, 223), null, true, 1, 1, false, true, true, true, false, "\n");
+        strip("AIP/GEN_3.7.pdf", def, 8,
+                new TestValue(0, 0, "ALL AIRCRAFT"), 
+                new TestValue(8/2, 1, "FIS"), 
+                new TestValue(8-1, -1, "AVBL for IFR ACFT on GND at\nNZAS"));
+    }
+
+    @Test
+    public void GEN_3_7_table() throws IOException {
+        var def = new LinedTable("GEN 3.7 table", 1, new Color(223, 223, 223), Pattern.compile("Table\\s?GEN\\s?3.7-2"), true, 1, 1, false, true, true, true, false, "\n");
+        strip("AIP/GEN_3.7.pdf", def, 259, 
+                new TestValue(0, 0, "ALL AIRCRAFT"), 
+                new TestValue(259/2, 1, "FIS"), 
+                new TestValue(259-1, -1, "Nominal range at 10,000 ft: 80 NM\nNote: Terrain shielding may reduce\nAVBL range. ELEV 110 ft"));
+    }
+
+    @Test
+    public void CtaZones() throws IOException {
+        var def = new LinedTable("CTA zones", 1, Color.BLACK, Pattern.compile("\\*\\*\\*"), true, 0, 1, false, true, true, true, false, " ");
+        strip("AIP/1_01_NZANR_Part_71_Controlled_Airspace_CTA.pdf", def, 123, 
+                new TestValue(0, 0, "NZA132"), 
+                new TestValue(123/2, 1, "NAPIER"), 
+                new TestValue(123-1, -1, "FL"));
+    }
+
+    @Test
+    public void CtaPoints() throws IOException {
+        var def = new LinedTable("CTA zones", 6, new Color(0x66, 0x66, 0x66), Pattern.compile("\\*\\*\\*"), true, 0, 1, false, true, true, true, false, " ");
+        strip("AIP/1_01_NZANR_Part_71_Controlled_Airspace_CTA.pdf", def, 1260, 
+                new TestValue(0, 0, "NZA132"), 
+                new TestValue(1260/2, 1, "1"), 
+                new TestValue(1260-1, -1, ""));
+    }
 
 //  LinedTable stripper = new LinedTable("NZKT_51.1_52.1", 2, Pattern.compile("1\\:[234]0.*1\\:[2345][05]"), Pattern.compile("\\d\\d"),
 //    Pattern.compile("LIGHTING|FACILITIES|SUPPLEMENTARY|MINIMA|FATO/TLOF"), '\n', false);
@@ -78,7 +160,7 @@ public class LinedTableTest {
         //    new LinedTable("DME-NZZC", 1, null, Pattern.compile("[A-Z]+.*?[A-Z]+.*?\\d+\\.\\d+[NS].*"), Pattern.compile("\\*\\*\\*"));
         // new LinedTable("NZD boundaries", 17, Pattern.compile("Identifier.*Sequence.*"), Pattern.compile("(?:NZD\\d\\d\\d)|\\w{4,}"), Pattern.compile("\\*\\*\\*"), ' ');
 //    new LinedTable("VHZ descriptions", 1, null, Pattern.compile("Activity.*or.*Purpose.*"), Pattern.compile("\\*\\*\\*"));
-    }
+    
 
     private void strip(String filename, LinedTable tab,
             int size, TestValue first, TestValue middle, TestValue last) throws IOException {
