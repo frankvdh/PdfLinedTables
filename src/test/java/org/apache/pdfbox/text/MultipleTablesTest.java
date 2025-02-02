@@ -59,8 +59,8 @@ public class MultipleTablesTest {
     @Test
     public void CTA() throws IOException {
         MultipleTables mt = new MultipleTables(
-                new LinedTable("zones", 1, Color.BLACK, Pattern.compile("\\*\\*\\*"), true, 0, 1, false, true, true, true, false, " "),
-                new LinedTable("points", -1, new Color(0x66, 0x66, 0x66), Pattern.compile("\\*\\*\\*"), true, 0, 1, false, true, true, true, false, " "));
+                new LinedTable("CTA zones", 1, Color.BLACK, Pattern.compile("\\*\\*\\*"), true, 0, 1, false, true, true, true, false, " "),
+                new LinedTable("CTA points", -1, new Color(0x66, 0x66, 0x66), Pattern.compile("\\*\\*\\*"), true, 0, 1, false, true, true, true, false, " "));
         strip("AIP/1_01_NZANR_Part_71_Controlled_Airspace_CTA.pdf", mt,
                 new int[]{123, 1260},
                 new TestValue[][]{
@@ -76,8 +76,8 @@ public class MultipleTablesTest {
     @Test
     public void LFZ() throws IOException {
         MultipleTables mt = new MultipleTables(
-                new LinedTable("zones", 1, Color.BLACK, Pattern.compile("\\*\\*\\*"), true, 0, 1, false, true, true, true, false, " "),
-                new LinedTable("points", -1, new Color(0x66, 0x66, 0x66), Pattern.compile("\\*\\*\\*"), true, 0, 1, false, true, true, true, false, " "));
+                new LinedTable("LFZ zones", 1, Color.BLACK, Pattern.compile("\\*\\*\\*"), true, 0, 1, false, true, true, true, false, " "),
+                new LinedTable("LFZ points", -1, new Color(0x66, 0x66, 0x66), Pattern.compile("\\*\\*\\*"), true, 0, 1, false, true, true, true, false, " "));
         strip("AIP/1_03_NZANR_Part_71_Low_Flying_Zones_LFZ.pdf", mt,
                 new int[]{51, 307},
                 new TestValue[][]{
@@ -93,8 +93,8 @@ public class MultipleTablesTest {
     @Test
     public void GAA() throws IOException {
         MultipleTables mt = new MultipleTables(
-                new LinedTable("zones", 1, Color.BLACK, Pattern.compile("\\*\\*\\*"), true, 0, 1, false, true, true, true,false,  " "),
-                new LinedTable("points", -1, new Color(0x66, 0x66, 0x66), Pattern.compile("\\*\\*\\*"), true, 0, 1, false, true, true, true, false, " "));
+                new LinedTable("GAA zones", 1, Color.BLACK, Pattern.compile("\\*\\*\\*"), true, 0, 1, false, true, true, true, false, " "),
+                new LinedTable("GAA points", -1, new Color(0x66, 0x66, 0x66), Pattern.compile("\\*\\*\\*"), true, 0, 1, false, true, true, true, false, " "));
         strip("AIP/1_11_NZANR_Part_71_General_Aviation_Areas_GAA.pdf", mt,
                 new int[]{45, 311},
                 new TestValue[][]{
@@ -104,6 +104,46 @@ public class MultipleTablesTest {
                     new TestValue[]{new TestValue(0, 0, "NZG152"),
                         new TestValue(311 / 2, 1, "GRC"),
                         new TestValue(311 - 1, -1, "")}}
+        );
+    }
+
+    @Test
+    public void MBZ() throws IOException {
+        MultipleTables mt = new MultipleTables(
+                new LinedTable("MBZ zones", 1, Color.BLACK, Pattern.compile("\\*\\*\\*"), true, 0, 1, false, true, true, true, true, " "),
+                new LinedTable("MBZ points", -1, new Color(0x66, 0x66, 0x66), Pattern.compile("\\*\\*\\*"), true, 0, 1, false, true, true, true, false, " "));
+        strip("AIP/1_12_NZANR_Part_71_Mandatory_Broadcast_Zones_MBZ.pdf", mt,
+                new int[]{48, 355},
+                new TestValue[][]{
+                    new TestValue[]{new TestValue(0, 0, "NZB169"),
+                        new TestValue(30, 1, "TAUPO MBZ"),
+                        new TestValue(19, 0, "NZB269"),
+                        new TestValue(19, -1, "HJ")},
+                    new TestValue[]{new TestValue(0, 0, "NZB169_A"),
+                        new TestValue(355 / 2, 0, "NZB371"),
+                        new TestValue(355 / 2, 1, "12"),
+                        new TestValue(355 / 2, 2, "following SH49 from"),
+                        new TestValue(4, -1, "NM")}}
+        );
+    }
+
+    @Test
+    public void NZD() throws IOException {
+        MultipleTables mt = new MultipleTables(
+                new LinedTable("NZD zones", 1, Color.BLACK, Pattern.compile("\\*\\*\\*"), true, 0, 1, false, true, true, true, true, " "),
+                new LinedTable("NZD points", -1, new Color(0x66, 0x66, 0x66), Pattern.compile("\\*\\*\\*"), true, 0, 1, false, true, true, true, false, " "));
+        strip("AIP/1_10_NZANR_Part_71_Danger_Areas_D.pdf", mt,
+                new int[]{58, 163},
+                new TestValue[][]{
+                    new TestValue[]{new TestValue(0, 0, "NZD120"),
+                        new TestValue(30, 1, "MAUI PLATFORM B"),
+                        new TestValue(19, 0, "NZD321"),
+                        new TestValue(19, 2, "1000")},
+                    new TestValue[]{new TestValue(0, 0, "NZD120"),
+                        new TestValue(163 / 2, 0, "NZD715"),
+                        new TestValue(163 / 2, 1, "1"),
+                        new TestValue(163 / 2, 3, "421838.10S"),
+                        new TestValue(2, 8, "0.54")}}
         );
     }
 
@@ -141,9 +181,9 @@ public class MultipleTablesTest {
             var table = mt.tables[i].table;
             assertNotNull(table);
             assertEquals(size[i], table.size());
-            assertEquals(sample[i][0].getValue(), table.get(sample[i][0].row)[sample[i][0].col]);
-            assertEquals(sample[i][1].getValue(), table.get(sample[i][1].row)[table.get(sample[i][1].row).length / 2]);
-            assertEquals(sample[i][2].getValue(), table.get(sample[i][2].row)[sample[i][2].col < 0 ? table.get(sample[i][2].row).length + sample[i][2].col : sample[i][2].col]);
+            for (var s : sample[i]) {
+                assertEquals(s.getValue(), table.get(s.row)[s.col < 0 ? table.get(s.row).length + s.col : s.col]);
+            }
         }
     }
 

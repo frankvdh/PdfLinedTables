@@ -114,6 +114,15 @@ public class LinedTableTest {
     }
 
     @Test
+    public void VRP() throws IOException {
+        var def = new LinedTable("VRP", 1, Color.BLACK, Pattern.compile("\\*\\*\\*"), true, 0, 1, false, true, true, true, true, " ");
+        strip("AIP/1_06_NZANR_Part_71_Visual_Reporting_Points_VRP.pdf", def,
+                634, new TestValue(0, 0, "ADA"), 
+                new TestValue(634/2, 0, "MISSION BAY"), 
+                new TestValue(634-1, -1, "1674858.20E"));
+    }
+
+    @Test
     public void PLA() throws IOException {
         var def = new LinedTable("PLA", 1, Color.BLACK, null, true, 0, 1, false, true, true, true, false, " ");
         strip("AIP/1_04_NZANR_Part_71_Parachute_Landing_Areas_PLA.pdf", def,
@@ -151,24 +160,12 @@ public class LinedTableTest {
 
     @Test
     public void CtaPoints() throws IOException {
-        var def = new LinedTable("CTA zones", 6, new Color(0x66, 0x66, 0x66), Pattern.compile("\\*\\*\\*"), true, 0, 1, false, true, true, true, false, " ");
+        var def = new LinedTable("CTA points", 6, new Color(0x66, 0x66, 0x66), Pattern.compile("\\*\\*\\*"), true, 0, 1, false, true, true, true, false, " ");
         strip("AIP/1_01_NZANR_Part_71_Controlled_Airspace_CTA.pdf", def, 1260, 
                 new TestValue(0, 0, "NZA132"), 
                 new TestValue(1260/2, 1, "1"), 
                 new TestValue(1260-1, -1, ""));
-    }
-
-//  LinedTable stripper = new LinedTable("NZKT_51.1_52.1", 2, Pattern.compile("1\\:[234]0.*1\\:[2345][05]"), Pattern.compile("\\d\\d"),
-//    Pattern.compile("LIGHTING|FACILITIES|SUPPLEMENTARY|MINIMA|FATO/TLOF"), '\n', false);
-//
-//  stripper.extractTable("/home/frank/Mapping/AIP/NZKT_51.1_52.1.pdf", 40);
-//  LinedTable stripper
-//    = new LinedTable("MBZ boundaries", 5, Pattern.compile("(?:Identifier.*Sequence.*)"), Pattern.compile("(?:NZB\\d\\d\\d)|(?:\\s*[A-Za-z]{4,})"), Pattern.compile("\\*\\*\\*"));
-        //= new LinedTable("MBZ names", 1, Pattern.compile("(?:Identifier.*Name.*)"), Pattern.compile("NZB\\d\\d\\d.*"), Pattern.compile("\\*\\*\\*"));
-//new LinedTable("VRP", 0, Pattern.compile("\\*\\*\\*"), Pattern.compile("Name.*Latitude.*Longitude"));
-        //    new LinedTable("DME-NZZC", 1, null, Pattern.compile("[A-Z]+.*?[A-Z]+.*?\\d+\\.\\d+[NS].*"), Pattern.compile("\\*\\*\\*"));
-        // new LinedTable("NZD boundaries", 17, Pattern.compile("Identifier.*Sequence.*"), Pattern.compile("(?:NZD\\d\\d\\d)|\\w{4,}"), Pattern.compile("\\*\\*\\*"), ' ');
-    
+    }  
 
     private void strip(String filename, LinedTable tab,
             int size, TestValue first, TestValue middle, TestValue last) throws IOException {
