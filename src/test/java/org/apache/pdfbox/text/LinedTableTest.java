@@ -76,6 +76,15 @@ public class LinedTableTest {
                 new TestValue(3/2, 1, "Gr"),                 
                 new TestValue(3-1, -1, "860"));
 }
+   
+    @Test
+    public void NZKT() throws IOException {
+        var coords = new LinedTable("NZPH", 2, Color.BLACK, null, true, 0, 1, false, true, true, true, false, "\n");
+        strip("AIP/NZKT_51.1_52.1.pdf", coords, 4, 
+                new TestValue(0, 0, "RWY"), 
+                new TestValue(4/2, 1, "B"),                 
+                new TestValue(4-1, -1, "1170\n1018"));
+}
 
     @Test
     public void Coordinates_firstPage() throws IOException {
@@ -159,7 +168,6 @@ public class LinedTableTest {
 //new LinedTable("VRP", 0, Pattern.compile("\\*\\*\\*"), Pattern.compile("Name.*Latitude.*Longitude"));
         //    new LinedTable("DME-NZZC", 1, null, Pattern.compile("[A-Z]+.*?[A-Z]+.*?\\d+\\.\\d+[NS].*"), Pattern.compile("\\*\\*\\*"));
         // new LinedTable("NZD boundaries", 17, Pattern.compile("Identifier.*Sequence.*"), Pattern.compile("(?:NZD\\d\\d\\d)|\\w{4,}"), Pattern.compile("\\*\\*\\*"), ' ');
-//    new LinedTable("VHZ descriptions", 1, null, Pattern.compile("Activity.*or.*Purpose.*"), Pattern.compile("\\*\\*\\*"));
     
 
     private void strip(String filename, LinedTable tab,

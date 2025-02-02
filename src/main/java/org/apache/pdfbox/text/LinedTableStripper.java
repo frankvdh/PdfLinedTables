@@ -224,7 +224,7 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine implements Close
      * @throws IOException on file error
      */
     public ArrayList<String[]> extractTable(int firstPage, float startY, Pattern tableEnd, Color headingColour) throws IOException {
-        firstPage--; // Cjanhe to 0-based page numbering
+        firstPage--; // Change to 0-based page numbering
         var result = new ArrayList<String[]>();
         while (firstPage < doc.getNumberOfPages()) {
             if (currPage != firstPage) {
@@ -471,7 +471,6 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine implements Close
      * @param vert Map of vertical lines, sorted by X,Y
      * @param tableContents Map of textPosiions, sorted by Y,X
      */
-
     private TreeMap<Float, TreeMap<Float, TableCell>> buildActualRectangles(
             TreeMap<Float, TreeMap<Float, Float>> horiz,
             TreeMap<Float, TreeMap<Float, Float>> vert,
@@ -704,40 +703,55 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine implements Close
             // It may be that the end pattern is above the start of a second table
             // with the same colour as the first
             for (var c : textLocationsByYX.entrySet()) {
-                endTablePos = c.getKey();
                 // Concatenate all of the text onto entire lines
                 var line = new StringBuilder(c.getValue().values().size());
                 c.getValue().values().forEach(tp -> {
                     line.append(tp.getUnicode());
                 });
                 if (tableEnd.matcher(line.toString()).find()) {
+                endTablePos = c.getKey();
                     LOG.traceExit("findEndTable: {}", endTablePos);
                     return true;
                 }
             }
             LOG.warn("Table end delimiter \"{}\" not found", tableEnd.toString());
         }
+
         if (headingColor != null) {
             // Assume that the next table heading delimits the bottom of the table
-            var endPos = rectangles.get(headingColor.getRGB()).ceilingKey(bounds.getMinY() + tableDef.tolerance);
+            // Ignore rectangles that are outside the X bounds of the table
+            var rects = new TreeMap<>(rectangles.get(headingColor.getRGB()).tailMap(bounds.getMinY() + tableDef.tolerance));
+            for (var it = rects.entrySet().iterator(); it.hasNext();) {
+                var r = it.next();
+                if (r.getValue().ceilingEntry(bounds.getMinX()) == null || r.getValue().floorKey(bounds.getMaxX()) == null) {
+                    it.remove();
+                }
+            }
+            var endPos = rects.ceilingKey(bounds.getMinY() + tableDef.tolerance);
             if (endPos != null) {
+                // Another table heading found
+                var bottomLine = horizLines.subMap(bounds.getMinY() + tableDef.tolerance, endPos).lastKey();
+                if (bottomLine != null) {
+                    endTablePos = bottomLine;
+                    return true;
+                }
+                LOG.warn("No line above table heading at {}", endPos);
                 endTablePos = endPos;
                 return true;
+            } else {
+                LOG.warn("No other table heading found");
+                endTablePos = bounds.getMaxY();
             }
-            LOG.warn("No other table heading found");
-            endTablePos = Float.NaN;
         }
-        if (!horizLines.isEmpty()) {
-            // Assume that the last horizontal line on the page is the bottom of the table
-            endTablePos = horizLines.lastKey();
-            if (endTablePos <= bounds.getMinY()) {
-                LOG.warn("No Table end delimiter specified and no horizontal line below heading");
-                endTablePos = Float.NaN;
-            }
+        // Assume that the last horizontal line on the page, or above the next
+        // heading if one is present, is the bottom of the table
+        var linePos = horizLines.floorKey(endTablePos);
+        if (linePos != null && linePos > bounds.getMinY() + tableDef.tolerance) {
+            endTablePos = linePos;
             return tableEnd == null;
         }
-        LOG.warn("No Table end delimiter specified and no horizontal line found");
-        endTablePos = Float.NaN;
+        LOG.error("No Table end delimiter specified, heading at {}, {} found, no horizontal line between", bounds.getMinY(), endTablePos);
+        endTablePos = bounds.getMaxY();
         return false;
     }
 
