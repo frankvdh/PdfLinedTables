@@ -152,10 +152,10 @@ public class LinedTableTest {
     @Test
     public void CtaPoints() throws IOException {
         var def = new LinedTable("CTA points", 7, new Color(0x66, 0x66, 0x66), Pattern.compile("\\*\\*\\*"), true, 0, 1, false, true, true, true, false, " ");
-        strip("AIP/1_01_NZANR_Part_71_Controlled_Airspace_CTA.pdf", def, 1281, 
+        strip("AIP/1_01_NZANR_Part_71_Controlled_Airspace_CTA.pdf", def, 1330, 
                 new TestValue(0, 0, "NZA132"), 
-                new TestValue(1281/2, 1, "3"), 
-                new TestValue(1281-1, -1, ""));
+                new TestValue(1330/2, 1, "4"), 
+                new TestValue(1330-1, 1, "16"));
     }  
 
     private void strip(String filename, LinedTable tab,

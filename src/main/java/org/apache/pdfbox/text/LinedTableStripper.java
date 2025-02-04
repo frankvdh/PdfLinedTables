@@ -247,7 +247,7 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine implements Close
             endTableFound = findEndTable(bounds, tableEnd, headingColour);
             if (!Float.isNaN(endTablePos)) {
                 bounds.setMaxY(endTablePos);
-                LOG.debug("Extracting page {} of {} from {}", currPage + 1, doc.getNumberOfPages(), bounds.getMinY());
+                LOG.info("{}: Extracting page {} of {} from {}", tableDef.name, currPage + 1, doc.getNumberOfPages(), bounds.getMinY());
                 var table = getTable(headingColour, bounds);
                 if (table == null) {
                     return result;
@@ -902,6 +902,10 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine implements Close
             }
         }
         LOG.trace("rectangle added {}", rect);
+        
+        // Add horizontal lines for the top and bottom of the rectangle
+        addLine(p0, new Point2D.Float(p1.x, p0.y));
+        addLine(new Point2D.Float(p0.x, p1.y), p1);
     }
 
     /**
@@ -943,7 +947,7 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine implements Close
      *
      */
     private void addLine(Point2D.Float p0, Point2D.Float p1) throws IOException {
-        LOG.traceEntry("addPath: {} {}", p0, p1);
+        LOG.traceEntry("addLine: {} {}", p0, p1);
 
         // Coordinates here are already in display space
         // Add a line to the appropriate sorted list (horizLines, vertLines).

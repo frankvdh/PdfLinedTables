@@ -64,14 +64,16 @@ public class MultipleTablesTest {
                 new LinedTable("CTA zones", 1, Color.BLACK, Pattern.compile("\\*\\*\\*"), true, 0, 1, false, true, true, true, false, " "),
                 new LinedTable("CTA points", -1, new Color(0x66, 0x66, 0x66), Pattern.compile("\\*\\*\\*"), true, 0, 1, false, true, true, true, false, " "));
         strip("AIP/1_01_NZANR_Part_71_Controlled_Airspace_CTA.pdf", mt,
-                new int[]{125, 1281},
+                new int[]{125, 1330},
                 new TestValue[][]{
                     new TestValue[]{new TestValue(0, 0, "NZA132"),
                         new TestValue(123 / 2, 1, "NAPIER"),
                         new TestValue(123 - 1, -1, "FT")},
                     new TestValue[]{new TestValue(0, 0, "NZA132"),
-                        new TestValue(1281 / 2, 5, "GRC"),
-                        new TestValue(1281 - 1, -1, "")}}
+                        new TestValue(1330 / 2, 5, "GRC"),
+                        new TestValue(1330 - 1, -1, ""),
+                    new TestValue(22, 0, "NZA137"),
+                        new TestValue(22, 1, "6")}}
         );
     }
 

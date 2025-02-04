@@ -74,7 +74,7 @@ public class MultipleTables {
             var nextPage = tables[0].firstPageNo + (tables[0].startOnNewPage ? -1 : 0);
             float startY;
             for (var t : tables) {
-                LOG.debug("Reading " + t.name);
+                LOG.info("Reading " + t.name);
                 stripper.setDefinition(t);
                 if (t.startOnNewPage) {
                     startY = 0f;
