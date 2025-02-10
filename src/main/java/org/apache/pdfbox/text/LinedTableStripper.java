@@ -152,6 +152,19 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine implements Close
         this.doc = Loader.loadPDF(file);
     }
 
+    /**
+     * Constructor.
+     *
+     * @param file File to be read.
+     * @param tableDef Definition of table layout page
+     * @throws IOException If there is an error loading properties from the
+     * file.
+     */
+    public LinedTableStripper(PDDocument doc) throws IOException {
+        super(null);
+        this.doc = doc;
+    }
+
     public void setDefinition(LinedTable def) {
         this.tableDef = def;
         // Set up extra rotation that is not specified in the page
@@ -212,10 +225,13 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine implements Close
     }
 
     /**
-     * Parse a tables in the specified PDF file.
+     * Parse a table in the specified PDF file.
      *
-     * @param firstPage Page to start table from. 1-based
-     * @param headingColour Background colour of heading to search for
+     * @param nextPage Page number to start table from. 1-based
+     * @param headingColours Background colours of headings to search for. May
+     * be null. Elements may be null. Colours are specified per page. If there
+     * are more pages than colours, the last colour is used for pages which have
+     * no colour
      * @param startY Y coordinate on first page to start from
      * @param tableEnd Pattern indicating end of table
      * @param numColumns Number of columns in table
@@ -223,39 +239,45 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine implements Close
      * row is an array of Strings, with one entry for each column in the table.
      * @throws IOException on file error
      */
-    public ArrayList<String[]> extractTable(int firstPage, float startY, Pattern tableEnd, Color headingColour) throws IOException {
-        firstPage--; // Change to 0-based page numbering
-        var result = new ArrayList<String[]>();
-        while (firstPage < doc.getNumberOfPages()) {
-            if (currPage != firstPage) {
-                processPage(doc.getPage(firstPage));
-                currPage = firstPage;
+    public ArrayList<String[]> extractTable(int nextPage, float startY, Pattern tableEnd, Color[] headingColours) throws IOException {
+        nextPage--; // Change to 0-based page numbering
+        if (startY < 0) {
+            startY = 0;
+            LOG.error("Table {}, startY < 0", tableDef.getName());
+        }
+        int hdgColourIdx = 0;
+        var table = new ArrayList<String[]>();
+        while (nextPage < doc.getNumberOfPages()) {
+            if (currPage != nextPage) {
+                processPage(doc.getPage(nextPage));
+                currPage = nextPage;
             }
-            assert startY >= 0 : "startY < 0";
+            var currHeadingColour = headingColours == null || headingColours.length == 0 ? null : headingColours[hdgColourIdx];
             var bounds = new FRectangle(Float.NaN, startY, Float.NaN, mediaBox.getUpperRightY());
-            if (!findTable(bounds, headingColour)) {
+            if (!findTable(bounds, currHeadingColour)) {
                 // Heading not found... search for end because there may be 
                 // a delimiter on a page by itself (e.g. LFZ 28Nov24)
-                endTableFound = findEndTable(bounds, tableEnd, headingColour);
+                endTableFound = findEndTable(bounds, tableEnd, currHeadingColour);
                 if (!endTableFound) {
-                    LOG.error("Table header not found");
+                    LOG.error("Table {} header not found", tableDef.getName());
                 }
-                return result;
+                return table;
             }
             // Search for end from bottom of heading, so that detecting
             // the end of the current table by the heading of the next is possible
-            endTableFound = findEndTable(bounds, tableEnd, headingColour);
+            endTableFound = findEndTable(bounds, tableEnd, currHeadingColour);
             if (!Float.isNaN(endTablePos)) {
                 bounds.setMaxY(endTablePos);
-                LOG.info("{}: Extracting page {} of {} from {}", tableDef.name, currPage + 1, doc.getNumberOfPages(), bounds.getMinY());
-                var table = getTable(headingColour, bounds);
-                if (table == null) {
-                    return result;
+                LOG.debug("{}: Extracting page {}/{} from {}", tableDef.getName(), currPage + 1, doc.getNumberOfPages(), bounds.getMinY());
+                var thisPageTable = getTable(currHeadingColour, bounds);
+                if (thisPageTable == null || thisPageTable.isEmpty()) {
+                    LOG.error("No table for {}, page {}", tableDef.getName(), currPage + 1);
+                    return table;
                 }
-                if (tableDef.mergeWrappedRows && !result.isEmpty()) {
-                    var lastRow = result.getLast();
-                    while (!table.isEmpty() && table.getFirst()[0].isBlank()) {
-                        var firstRow = table.removeFirst();
+                if (tableDef.mergeWrappedRows && !table.isEmpty()) {
+                    var lastRow = table.getLast();
+                    while (!thisPageTable.isEmpty() && thisPageTable.getFirst()[0].isBlank()) {
+                        var firstRow = thisPageTable.removeFirst();
                         for (var i = 1; i < lastRow.length; i++) {
                             if (!firstRow[i].isBlank()) {
                                 lastRow[i] += tableDef.lineEnding + firstRow[i];
@@ -264,15 +286,16 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine implements Close
                     }
 
                 }
-                result.addAll(table);
+                table.addAll(thisPageTable);
             }
             if (endTableFound) {
-                return result;
+                return table;
             }
+            hdgColourIdx = Math.min(hdgColourIdx+1, headingColours == null ? 0 : headingColours.length - 1);
             startY = 0;
-            firstPage = currPage + 1;
+            nextPage = currPage + 1;
         }
-        return result;
+        return table;
     }
 
     /**
@@ -288,7 +311,7 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine implements Close
      * It then extracts text below the heading and between the X,Y bounds, and
      * scans it for the tableEnd pattern.
      *
-     * @param headingColour Fill colour of heading, may be null
+     * @param headingColours Fill colour of heading, may be null
      * @param dataColour Fill colour of data, may be null
      * @param tableEnd Pattern to identify end of table
      * @return the bounds of the table.
@@ -310,7 +333,8 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine implements Close
         rects.entrySet().forEach(row -> {
             allCols.addAll(row.getValue().keySet());
         });
-        // For a rectangular tablewith rectangular cells, all cells on the 
+
+        // For a rectangular table with rectangular cells, all cells on the 
         // bottom row must have the same bottom limit. (Some cells on other
         // rows may also have same bottom edge). Conversely, the rightmost cell 
         // of the top row must have a right edge on the rightmost bound
@@ -342,7 +366,12 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine implements Close
                         it.remove();
                     }
                 }
-                var srcRow = srcRowSubset.floorEntry(top).getValue();
+                // Find the row just above top
+                var topEntry = srcRowSubset.floorEntry(top + tableDef.tolerance);
+                if (topEntry == null) {
+                    continue;
+                }
+                var srcRow = topEntry.getValue();
                 var src = srcRow.floorEntry(left).getValue();
                 tableRow[colNum++] = src.getText();
             }
@@ -353,20 +382,15 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine implements Close
     }
 
     /**
-     * Extracts the cells of a table from data extracted from a PDF page.
-     *
-     * Finds the table by scanning the rectangles collection from startY for the
-     * row of rectangle of the heading colour. The bottom of the heading is the
-     * top of the data. The X bounds of the heading define the X bounds of the
-     * table.
+     * Extracts the cells of a table from text & lines extracted from a PDF
+     * page.
      *
      * It then composites text within the table bounds into rectangular cells
      * based on horizontal and vertical lines.
      *
      * @param headingColour Fill colour of heading, may be null
-     * @param dataColour Fill colour of data, may be null
-     * @param startY Y coordinate of top of table relative to top of page
-     * @param endY Y coordinate of bottom of table, as returned by findEndTable
+     * @param bounds Table bounds, prepopulated with Y coordinates of top &
+     * bottom of table relative to top of page
      * @return the set of cells, including their text, making up the table.
      *
      * @throws java.io.IOException for file errors
@@ -375,9 +399,19 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine implements Close
         // Now have located top & bottom of data in the table, and left & right limits
         // Extract subsets of the lines, rectangles, and text within these limits.
 
-        // Remove rectangles that are below the last horizontal line of the table... this removes any footnotes
-        // Initially  include rectangles which extend above the top of the table, because they may extend down into the table
-        var rects = new TreeMap<>(rectangles.get(headingColour.getRGB()).subMap(bounds.getMinY(), bounds.getMaxY()));
+        // Get rectangles whose tops are within the Y bounds of the table
+        // there probably are none
+        SortedMap<Float, TreeMap<Float, FRectangle>> rects;
+        if (headingColour == null) {
+            rects = new TreeMap<>();
+            for (var colourSet : rectangles.values()) {
+                rects.entrySet().addAll(colourSet.subMap(bounds.getMinY(), bounds.getMaxY()).entrySet());
+            }
+        } else {
+            rects = new TreeMap<>(rectangles.get(headingColour.getRGB()).subMap(bounds.getMinY(), bounds.getMaxY()));
+        }
+        // Reduce rectangles to those whose left edge is also within the X bounds. 
+        // Also throw out rectangles too small to contain text.
         for (var yIt = rects.entrySet().iterator(); yIt.hasNext();) {
             var yEntry = yIt.next();
             yEntry.getValue().entrySet().removeIf((var xEntry) -> !bounds.containsX(xEntry.getKey())
@@ -877,7 +911,7 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine implements Close
         var p1 = transformPoint((float) bounds.getMaxX(), (float) bounds.getMaxY(), postTransform);
         // Treat short wide rectangles as linesIgnore cells too small for text
         if (bounds.getHeight() < tableDef.tolerance || bounds.getWidth() < tableDef.tolerance) {
-            // Ignore cells too small for text
+            // Treat rectangles too small for text as lines
             if (bounds.getHeight() < tableDef.tolerance && bounds.getWidth() < tableDef.tolerance) {
                 LOG.trace("Ignored shaded rectangle {} too small for text", bounds);
                 return;
@@ -902,10 +936,14 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine implements Close
             }
         }
         LOG.trace("rectangle added {}", rect);
-        
+
         // Add horizontal lines for the top and bottom of the rectangle
         addLine(p0, new Point2D.Float(p1.x, p0.y));
         addLine(new Point2D.Float(p0.x, p1.y), p1);
+
+        // Add vertical lines for the left and right of the rectangle
+        addLine(p0, new Point2D.Float(p0.x, p1.y));
+        addLine(new Point2D.Float(p1.x, p0.y), p1);
     }
 
     /**
@@ -1006,7 +1044,7 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine implements Close
             }
             // No intersection with prev, intersects next -> prepend to next
             row.remove(next.getKey());
-            row.put(max, next.getValue());
+            row.put(min, next.getValue());
             return;
         }
 

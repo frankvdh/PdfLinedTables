@@ -18,6 +18,8 @@ package org.apache.pdfbox.text;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -44,7 +46,7 @@ import org.apache.logging.log4j.Logger;
 public class MultipleTables {
 
     private static final Logger LOG = LogManager.getLogger(MultipleTables.class);
-    final LinedTable[] tables;
+    final ArrayList<LinedTable> tables = new ArrayList<>();
 
     /**
      *
@@ -54,11 +56,19 @@ public class MultipleTables {
      */
     @SuppressWarnings("unchecked")
     public MultipleTables(LinedTable... tabs) {
-        tables = tabs;
+        tables.addAll(Arrays.asList(tabs));
     }
 
     public LinedTable getTable(int n) {
-        return tables[n];
+        return tables.get(n);
+    }
+
+    public int numTables() {
+        return tables.size();
+    }
+
+    public void addTable(LinedTable tab) {
+        tables.add(tab);
     }
     
     /**
@@ -69,12 +79,14 @@ public class MultipleTables {
      * table.
      * @throws IOException
      */
-    public void extractTables(File file) throws IOException {
+    public ArrayList<ArrayList<String[]>> extractTables(File file, int firstPageNo) throws IOException {
+        var result = new ArrayList<ArrayList<String[]>>(tables.size());
         try (var stripper = new LinedTableStripper(file)) {
-            var nextPage = tables[0].firstPageNo + (tables[0].startOnNewPage ? -1 : 0);
+            // Page numbers are 1-based here
+            var nextPage = firstPageNo + (tables.getFirst().startOnNewPage ? -1 : 0);
             float startY;
             for (var t : tables) {
-                LOG.info("Reading " + t.name);
+                LOG.info("Reading " + t.getName());
                 stripper.setDefinition(t);
                 if (t.startOnNewPage) {
                     startY = 0f;
@@ -82,12 +94,10 @@ public class MultipleTables {
                 } else {
                     startY = stripper.getTableBottom();
                 }
-                t.table = stripper.extractTable(t.firstPageNo < 1 ? nextPage : t.firstPageNo, startY, t.endTable, t.headingColour);
-                if (t.table == null || t.table.isEmpty()) {
-                    LOG.error("No table for {}, page {}", t.name, nextPage);
-               }
+                result.add(stripper.extractTable(nextPage, startY, t.endTable, t.headingColours));
                 nextPage = stripper.getCurrPageNum();
             }
         }
+        return result;
     }
 }

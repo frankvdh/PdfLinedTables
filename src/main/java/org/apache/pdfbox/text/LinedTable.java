@@ -30,10 +30,13 @@ import java.util.regex.Pattern;
  */
 public class LinedTable {
 
-    final String name;
-    final Color headingColour;
+    final private String name;
+
+    public String getName() {
+        return name;
+    }
+    final Color[] headingColours;
     final Pattern endTable;
-    final int firstPageNo;
     final boolean suppressDuplicateOverlappingText;
     final int extraQuadrantRotation;
     final float tolerance;
@@ -45,14 +48,33 @@ public class LinedTable {
     final boolean mergeWrappedRows;
 
     /**
-     * ArrayList of rows, one for each row in the result table.
+     * Constructor.
      *
-     * All rows are the same size. Rows which contain nothing but empty Strings
-     * are ignored. Each row consists of an array of cells. A cell is a single
-     * text string. Optionally, if there are multiple lines of text in the cell,
-     * they may be separated by a newline character.
+     * @param name
+     * @param pageNo Page to be read -- 1-based.
+     * @param headingColour table Heading Color... used to locate the table
+     * @param endTable
+     * @param data
      */
-    public ArrayList<String[]> table;
+    public LinedTable(String name, Color headingColour,
+            Pattern endTable, boolean suppressDuplicateOverlappingText,
+            int extraQuadrantRotation, int tolerance, boolean leadingSpaces,
+            boolean reduceSpaces, boolean removeEmptyRows, boolean startOnNewPage,
+            boolean mergeWrappedRows,
+            String lineEnding) {
+        this.name = name;
+        this.endTable = endTable;
+        this.headingColours = headingColour == null ? null : new Color[]{headingColour};
+        this.suppressDuplicateOverlappingText = suppressDuplicateOverlappingText;
+        this.extraQuadrantRotation = extraQuadrantRotation;
+        this.tolerance = tolerance;
+        this.leadingSpaces = leadingSpaces;
+        this.reduceSpaces = reduceSpaces;
+        this.removeEmptyRows = removeEmptyRows;
+        this.lineEnding = lineEnding;
+        this.startOnNewPage = startOnNewPage;
+        this.mergeWrappedRows = mergeWrappedRows;
+    }
 
     /**
      * Constructor.
@@ -63,17 +85,15 @@ public class LinedTable {
      * @param endTable
      * @param data
      */
-    public LinedTable(String name, int pageNo, Color headingColour,
+    public LinedTable(String name, Color[] headingColours,
             Pattern endTable, boolean suppressDuplicateOverlappingText,
             int extraQuadrantRotation, int tolerance, boolean leadingSpaces,
             boolean reduceSpaces, boolean removeEmptyRows, boolean startOnNewPage,
             boolean mergeWrappedRows,
             String lineEnding) {
         this.name = name;
-        table = new ArrayList<>(0);
         this.endTable = endTable;
-        this.headingColour = headingColour;
-        this.firstPageNo = pageNo;
+        this.headingColours = headingColours;
         this.suppressDuplicateOverlappingText = suppressDuplicateOverlappingText;
         this.extraQuadrantRotation = extraQuadrantRotation;
         this.tolerance = tolerance;
@@ -83,7 +103,6 @@ public class LinedTable {
         this.lineEnding = lineEnding;
         this.startOnNewPage = startOnNewPage;
         this.mergeWrappedRows = mergeWrappedRows;
-
     }
 
     /**
@@ -92,28 +111,11 @@ public class LinedTable {
      * @return
      * @throws IOException
      */
-    public ArrayList<String[]> extractTable(File file) throws IOException {
+    public ArrayList<String[]> extractTable(File file, int firstPageNo) throws IOException {
         try (LinedTableStripper stripper = new LinedTableStripper(file)) {
             stripper.setDefinition(this);
-            table = stripper.extractTable(firstPageNo, 1, endTable, headingColour);
-        }
+            var table = stripper.extractTable(firstPageNo, 1, endTable, headingColours);
         return table;
-    }
-
-    @Override
-    public String toString() {
-        if (table == null) {
-            return null;
         }
-        StringBuilder result = new StringBuilder();
-        table.stream().map((row) -> {
-            for (String c : row) {
-                result.append(c).append(", ");
-            }
-            return row;
-        }).forEachOrdered((_item) -> {
-            result.append("\n");
-        });
-        return result.toString();
     }
 }
