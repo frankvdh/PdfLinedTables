@@ -59,14 +59,27 @@ public class MultipleTables {
         tables.addAll(Arrays.asList(tabs));
     }
 
+    /** Get specified table
+     *
+     * @param n Number of table to get. 0-based.
+     * @return
+     */
     public LinedTable getTable(int n) {
         return tables.get(n);
     }
 
+    /** get number of tables
+     *
+     * @return
+     */
     public int numTables() {
         return tables.size();
     }
 
+    /** Add a table to the list
+     *
+     * @param tab   Definition of table to add
+     */
     public void addTable(LinedTable tab) {
         tables.add(tab);
     }
@@ -86,7 +99,7 @@ public class MultipleTables {
             var nextPage = firstPageNo + (tables.getFirst().startOnNewPage ? -1 : 0);
             float startY;
             for (var t : tables) {
-                LOG.info("Reading " + t.getName());
+                LOG.debug("Reading " + t.getName());
                 stripper.setDefinition(t);
                 if (t.startOnNewPage) {
                     startY = 0f;

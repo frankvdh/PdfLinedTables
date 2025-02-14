@@ -80,10 +80,11 @@ public class LinedTable {
      * Constructor.
      *
      * @param name
-     * @param pageNo Page to be read -- 1-based.
-     * @param headingColour table Heading Color... used to locate the table
+     * @param headingColours table Heading Color... used to locate the table
      * @param endTable
-     * @param data
+     * @param suppressDuplicateOverlappingText
+     * @param extraQuadrantRotation
+     * @param tolerance
      */
     public LinedTable(String name, Color[] headingColours,
             Pattern endTable, boolean suppressDuplicateOverlappingText,
@@ -112,10 +113,9 @@ public class LinedTable {
      * @throws IOException
      */
     public ArrayList<String[]> extractTable(File file, int firstPageNo) throws IOException {
-        try (LinedTableStripper stripper = new LinedTableStripper(file)) {
+        try (var stripper = new LinedTableStripper(file)) {
             stripper.setDefinition(this);
-            var table = stripper.extractTable(firstPageNo, 1, endTable, headingColours);
-        return table;
+            return stripper.extractTable(firstPageNo, 1, endTable, headingColours);
         }
     }
 }

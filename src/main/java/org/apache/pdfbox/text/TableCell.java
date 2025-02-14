@@ -39,14 +39,26 @@ public class TableCell extends FRectangle {
         this.text = text;
     }
 
+    /** Get text in this cell
+     *
+     * @return
+     */
     public String getText() {
         return text;
     }
 
+    /** Set text in this cell
+     *
+     * @param text
+     */
     public void setText(String text) {
         this.text = text;
     }
     
+    /** Convert to String
+     *
+     * @return
+     */
     @Override
     public String toString() {
         return String.format("[(%.2f, %.2f), (%.2f, %.2f)]: %s", getMinX(), getMinY(), getMaxX(), getMaxY(), text);

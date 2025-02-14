@@ -26,7 +26,7 @@ public class MultipleTablesTest {
     @Test
     public void IfrNavaids() throws IOException {
         LOG.debug("MultipleTables test");
-        MultipleTables mt = new MultipleTables(
+        var mt = new MultipleTables(
                 new LinedTable("DME-NZZC", Color.BLACK, Pattern.compile("\\*\\*\\*"), true, 0, 1, false, true, true, true, false, " "),
                 new LinedTable("DME-NZZO", Color.BLACK, Pattern.compile("\\*\\*\\*"), true, 0, 1, false, true, true, true, false, " "),
                 new LinedTable("NDB-NZZC", Color.BLACK, Pattern.compile("\\*\\*\\*"), true, 0, 1, false, true, true, true, false, " "),
@@ -60,7 +60,7 @@ public class MultipleTablesTest {
 
     @Test
     public void CTA() throws IOException {
-        MultipleTables mt = new MultipleTables(
+        var mt = new MultipleTables(
                 new LinedTable("CTA zones", Color.BLACK, Pattern.compile("\\*\\*\\*"), true, 0, 2, false, true, true, true, false, " "),
                 new LinedTable("CTA points", new Color[]{Color.BLACK, new Color(0x666666)}, Pattern.compile("\\*\\*\\*"), true, 0, 2, false, true, true, true, false, " "));
         strip("AIP/1_01_NZANR_Part_71_Controlled_Airspace_CTA.pdf", 1, mt,
@@ -79,7 +79,7 @@ public class MultipleTablesTest {
 
     @Test
     public void LFZ() throws IOException {
-        MultipleTables mt = new MultipleTables(
+        var mt = new MultipleTables(
                 new LinedTable("LFZ zones", Color.BLACK, Pattern.compile("\\*\\*\\*"), true, 0, 1, false, true, true, true, false, " "),
                 new LinedTable("LFZ points", Color.BLACK, Pattern.compile("\\*\\*\\*"), true, 0, 2, false, true, true, true, false, " "));
         strip("AIP/1_03_NZANR_Part_71_Low_Flying_Zones_LFZ.pdf", 1, mt,
@@ -96,15 +96,15 @@ public class MultipleTablesTest {
 
     @Test
     public void GAA() throws IOException {
-        MultipleTables mt = new MultipleTables(
-                new LinedTable("GAA zones", Color.BLACK, Pattern.compile("\\*\\*\\*"), true, 0, 1, false, true, true, true, false, " "),
+        var mt = new MultipleTables(
+                new LinedTable("GAA zones", Color.BLACK, Pattern.compile("\\*\\*\\*"), true, 0, 1, false, true, true, true, true, " "),
                 new LinedTable("GAA points", Color.BLACK, Pattern.compile("\\*\\*\\*"), true, 0, 2, false, true, true, true, true, " "));
         strip("AIP/1_11_NZANR_Part_71_General_Aviation_Areas_GAA.pdf", 1, mt,
-                new int[]{45, 311},new int[]{8, 10},
+                new int[]{43, 311},new int[]{8, 10},
                 new TestValue[][]{
                     new TestValue[]{new TestValue(0, 0, "NZG152"),
-                        new TestValue(45 / 2, 1, "FEILDING"),
-                        new TestValue(45 - 1, -1, "[Active:] By ATC approval.")},
+                        new TestValue(43 / 2, 1, "FEILDING"),
+                        new TestValue(43 - 1, -1, "[Active:] By ATC approval.")},
                     new TestValue[]{new TestValue(0, 0, "NZG152"),
                         new TestValue(311 / 2, 5, "GRC"),
                         new TestValue(31 - 1, -1, "")}}
@@ -113,7 +113,7 @@ public class MultipleTablesTest {
 
     @Test
     public void MBZ() throws IOException {
-        MultipleTables mt = new MultipleTables(
+        var mt = new MultipleTables(
                 new LinedTable("MBZ zones", Color.BLACK, Pattern.compile("\\*\\*\\*"), true, 0, 1, false, true, true, true, true, " "),
                 new LinedTable("MBZ points", Color.BLACK, Pattern.compile("\\*\\*\\*"), true, 0, 2, false, true, true, true, false, " "));
         strip("AIP/1_12_NZANR_Part_71_Mandatory_Broadcast_Zones_MBZ.pdf", 1, mt,
@@ -133,7 +133,7 @@ public class MultipleTablesTest {
 
     @Test
     public void NZD() throws IOException {
-        MultipleTables mt = new MultipleTables(
+        var mt = new MultipleTables(
                 new LinedTable("NZD zones", Color.BLACK, Pattern.compile("\\*\\*\\*"), true, 0, 1, false, true, true, true, true, " "),
                 new LinedTable("NZD points", Color.BLACK, Pattern.compile("\\*\\*\\*"), true, 0, 2, false, true, true, true, false, " "));
         strip("AIP/1_10_NZANR_Part_71_Danger_Areas_D.pdf", 1, mt,
@@ -153,7 +153,7 @@ public class MultipleTablesTest {
 
     @Test
     public void NZR() throws IOException {
-        MultipleTables mt = new MultipleTables(
+        var mt = new MultipleTables(
                     new LinedTable("NZR names", new Color[]{Color.BLACK, new Color(0x666666)}, Pattern.compile("\\*\\*\\*"), true, 0, 1, false, true, true, true, true, "\n"),
                     new LinedTable("NZR NZZC boundaries", Color.BLACK, Pattern.compile("\\*\\*\\*"), true, 0, 2, false, true, true, true, true, "\n"),
                     new LinedTable("NZR NZZO boundaries", Color.BLACK, Pattern.compile("\\*\\*\\*"), true, 0, 2, false, true, true, true, true, "\n"));
@@ -180,7 +180,7 @@ public class MultipleTablesTest {
 
     @Test
     public void VHZ() throws IOException {
-        MultipleTables mt = new MultipleTables(
+        var mt = new MultipleTables(
                 new LinedTable("zones", Color.BLACK, Pattern.compile("\\*\\*\\*"), true, 0, 1, false, true, true, true, true, "\n"),
                 new LinedTable("NZZC points", Color.BLACK, Pattern.compile("\\*\\*\\*\\s*OF\\s*NZZC"), true, 0, 1, false, true, true, false, false, " "),
                 new LinedTable("NZZO points", Color.BLACK, Pattern.compile("\\*\\*\\*\\s*OF\\s*AIRSPACE"), true, 0, 1, false, true, true, false, false, " "));

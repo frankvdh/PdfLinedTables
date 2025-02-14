@@ -127,16 +127,16 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine implements Close
     private AffineTransform postTransform;
     private boolean endTableFound;
     private float endTablePos = 0f;
-
-    final private PDDocument doc;
-    private int currPage = Integer.MIN_VALUE;
-
-    public int getCurrPageNum() {
-        return currPage + 1; // currPage is 0-based, externally pages are 1-based
-    }
-
     public float getTableBottom() {
         return endTablePos;
+    }
+
+
+    final private PDDocument doc;
+
+    private int currPage = Integer.MIN_VALUE;
+    public int getCurrPageNum() {
+        return currPage + 1; // currPage is 0-based, externally pages are 1-based
     }
 
     /**
@@ -165,6 +165,10 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine implements Close
         this.doc = doc;
     }
 
+    /** Set table definition for stripper to use
+     *
+     * @param def New table definition
+     */
     public void setDefinition(LinedTable def) {
         this.tableDef = def;
         // Set up extra rotation that is not specified in the page
@@ -245,7 +249,7 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine implements Close
             startY = 0;
             LOG.error("Table {}, startY < 0", tableDef.getName());
         }
-        int hdgColourIdx = 0;
+        var hdgColourIdx = 0;
         var table = new ArrayList<String[]>();
         while (nextPage < doc.getNumberOfPages()) {
             if (currPage != nextPage) {
@@ -345,7 +349,7 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine implements Close
 
         var top = rows.removeFirst();
         var tableLeft = allCols.removeFirst();
-        ArrayList<String[]> table = new ArrayList<>();
+        var table = new ArrayList<String[]>();
         while (!rows.isEmpty()) {
             var right = tableLeft;
             var bottom = rows.removeFirst();
@@ -404,9 +408,9 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine implements Close
         SortedMap<Float, TreeMap<Float, FRectangle>> rects;
         if (headingColour == null) {
             rects = new TreeMap<>();
-            for (var colourSet : rectangles.values()) {
+            rectangles.values().forEach(colourSet -> {
                 rects.entrySet().addAll(colourSet.subMap(bounds.getMinY(), bounds.getMaxY()).entrySet());
-            }
+            });
         } else {
             rects = new TreeMap<>(rectangles.get(headingColour.getRGB()).subMap(bounds.getMinY(), bounds.getMaxY()));
         }
@@ -444,20 +448,20 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine implements Close
         // Initially  include lines which extend above the top of the table, because they may extend down into the table
         // Remove empty rows
         var vert = new TreeMap<Float, TreeMap<Float, Float>>();
-        for (var src : vertLines.subMap(bounds.getMinX() - tableDef.tolerance, bounds.getMaxX() + tableDef.tolerance).entrySet()) {
+        vertLines.subMap(bounds.getMinX() - tableDef.tolerance, bounds.getMaxX() + tableDef.tolerance).entrySet().forEach((var src) -> {
             var srcCol = new TreeMap<>(src.getValue().headMap(bounds.getMaxY()));
             var resultCol = new TreeMap<Float, Float>();
-            for (var e : srcCol.entrySet()) {
+            srcCol.entrySet().forEach(e -> {
                 var top = bounds.trimY(e.getKey());
                 var bottom = bounds.trimY(e.getValue());
                 if (bottom - top > tableDef.tolerance) {
                     resultCol.put(top, bottom);
                 }
-            }
+            });
             if (!resultCol.isEmpty()) {
                 vert.put(src.getKey(), resultCol);
             }
-        }
+        });
         if (vert.isEmpty()) {
             LOG.error("No vertical lines in table");
             return null;
@@ -570,7 +574,7 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine implements Close
                     // Now have the top & bottom lines and X limits
                     LOG.trace("{}, {}, {}, {}", left, top, right, bottom);
                     var rect = getRectangleText(left, top, right, bottom, tableContents);
-                    var row = results.computeIfAbsent(top, k -> new TreeMap<>());
+                    var row = results.computeIfAbsent(top, v -> new TreeMap<>());
                     row.put(left, rect);
                 }
                 vLeft = vRight;
@@ -597,10 +601,7 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine implements Close
     private SortedMap<Float, Float> getTopVert(float left, float top, TreeMap<Float, TreeMap<Float, Float>> vert) {
         var topRow = new TreeMap<Float, Float>();
         // Extract lines starting at or above the top of the table
-        for (var colEntry : vert.entrySet()) {
-            if (colEntry.getKey() < left - tableDef.tolerance) {
-                continue;
-            }
+        vert.entrySet().stream().filter(colEntry -> !(colEntry.getKey() < left - tableDef.tolerance)).forEachOrdered(colEntry -> {
             var col = new TreeMap<>(colEntry.getValue());
             // Remove lines whose bottoms are above the table
             col.entrySet().removeIf((var e) -> e.getValue() < top + tableDef.tolerance || e.getKey() > top + tableDef.tolerance);
@@ -609,7 +610,7 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine implements Close
                 var v = col.firstEntry();
                 topRow.put(x, v.getValue());
             }
-        }
+        });
         return topRow;
     }
 
@@ -1028,7 +1029,7 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine implements Close
                 LOG.trace("added to vert line x = {}, {} - {}", x, top, bottom);
             }
         } else {
-            LOG.warn("Diagonal line segment {}, {} ignored", p0, p1);
+            LOG.debug("Diagonal line segment {}, {} ignored", p0, p1);
         }
     }
 
@@ -1140,7 +1141,7 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine implements Close
 
     @Override
     public void curveTo(float x1, float y1, float x2, float y2, float x3, float y3) {
-        LOG.warn("curveTo ignored: {} {}, {} {}, {} {}", x1, y1, x2, y2, x3, y3);
+        LOG.debug("curveTo ignored: {} {}, {} {}, {} {}", x1, y1, x2, y2, x3, y3);
     }
 
     @Override
@@ -1238,6 +1239,11 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine implements Close
     }
 
     // NOTE: there are more methods in PDFStreamEngine which can be overridden here too.
+
+    /** Close stripper and release memory
+     *
+     * @throws IOException
+     */
     @Override
     public void close() throws IOException {
         doc.close();
