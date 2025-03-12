@@ -127,14 +127,15 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine implements Close
     private AffineTransform postTransform;
     private boolean endTableFound;
     private float endTablePos = 0f;
+
     public float getTableBottom() {
         return endTablePos;
     }
 
-
     final private PDDocument doc;
 
     private int currPage = Integer.MIN_VALUE;
+
     public int getCurrPageNum() {
         return currPage + 1; // currPage is 0-based, externally pages are 1-based
     }
@@ -143,9 +144,7 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine implements Close
      * Constructor.
      *
      * @param file File to be read.
-     * @param tableDef Definition of table layout page
-     * @throws IOException If there is an error loading properties from the
-     * file.
+     * @throws IOException If there is an error reading the file.
      */
     public LinedTableStripper(File file) throws IOException {
         super(null);
@@ -155,17 +154,16 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine implements Close
     /**
      * Constructor.
      *
-     * @param file File to be read.
-     * @param tableDef Definition of table layout page
-     * @throws IOException If there is an error loading properties from the
-     * file.
+     * @param doc PDF Document containing the table.
+     * @throws IOException If there is an error reading the file.
      */
     public LinedTableStripper(PDDocument doc) throws IOException {
         super(null);
         this.doc = doc;
     }
 
-    /** Set table definition for stripper to use
+    /**
+     * Set table definition for stripper to use
      *
      * @param def New table definition
      */
@@ -183,8 +181,8 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine implements Close
      * Process the specified page... populate the vertLines, horizLines,
      * rectangles, textLocationsByYX structures
      *
-     * @param page
-     * @throws IOException
+     * @param page The PDF document page to parse
+     * @throws IOException If there is an error reading the file.
      */
     @Override
     final public void processPage(PDPage page) throws IOException {
@@ -237,8 +235,7 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine implements Close
      * are more pages than colours, the last colour is used for pages which have
      * no colour
      * @param startY Y coordinate on first page to start from
-     * @param tableEnd Pattern indicating end of table
-     * @param numColumns Number of columns in table
+     * @param tableEnd Pattern to identify the end of the table
      * @return table. Each String[] entry contains each row in the table. Each
      * row is an array of Strings, with one entry for each column in the table.
      * @throws IOException on file error
@@ -295,7 +292,7 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine implements Close
             if (endTableFound) {
                 return table;
             }
-            hdgColourIdx = Math.min(hdgColourIdx+1, headingColours == null ? 0 : headingColours.length - 1);
+            hdgColourIdx = Math.min(hdgColourIdx + 1, headingColours == null ? 0 : headingColours.length - 1);
             startY = 0;
             nextPage = currPage + 1;
         }
@@ -315,10 +312,9 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine implements Close
      * It then extracts text below the heading and between the X,Y bounds, and
      * scans it for the tableEnd pattern.
      *
-     * @param headingColours Fill colour of heading, may be null
-     * @param dataColour Fill colour of data, may be null
-     * @param tableEnd Pattern to identify end of table
-     * @return the bounds of the table.
+     * @param headingColour Fill colour of heading, may be null
+     * @param bounds The limits of the table
+     * @return the contents of the table.
      *
      * @throws java.io.IOException for file errors May be overridden if there is
      * some other mechanism to identify the top of the table.
@@ -386,18 +382,18 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine implements Close
     }
 
     /**
-     * Extracts the cells of a table from text & lines extracted from a PDF
+     * Extracts the cells of a table from text and lines extracted from a PDF
      * page.
      *
      * It then composites text within the table bounds into rectangular cells
      * based on horizontal and vertical lines.
      *
      * @param headingColour Fill colour of heading, may be null
-     * @param bounds Table bounds, prepopulated with Y coordinates of top &
+     * @param bounds Table bounds, prepopulated with Y coordinates of top and
      * bottom of table relative to top of page
      * @return the set of cells, including their text, making up the table.
      *
-     * @throws java.io.IOException for file errors
+     * @throws IOException for file errors
      */
     public TreeMap<Float, TreeMap<Float, TableCell>> extractCells(Color headingColour, FRectangle bounds) throws IOException {
         // Now have located top & bottom of data in the table, and left & right limits
@@ -625,7 +621,9 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine implements Close
      *
      * @param horiz Set of horizontal lines, sorted by Y,X
      * @param vert Set of vertical lines, sorted by Y,X
-     * @param rects Set of rectangles
+     * @param tableContents Set of cells in the table, sorted top to bottom and
+     * left to right
+     * @return Array of all cells in the table
      */
     protected TableCell[][] buildRegularRectangles(SortedSet<FRectangle> horiz, SortedSet<FRectangle> vert, SortedSet<TableCell> tableContents) {
         if (horiz.size() < 2 || vert.size() < 2) {
@@ -688,9 +686,12 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine implements Close
     /**
      * Extract the text contained within the specified rectangle
      *
-     * @param rect
-     * @param tableContents
-     * @return
+     * @param x0 left edge of rectangle
+     * @param y0 top edge of rectangle
+     * @param x1 right edge of rectangle
+     * @param y1 bottom edge of rectangle
+     * @param tableContents XY Map of all cells found in the table
+     * @return The cell representing the given rectangle, including its text
      */
     protected TableCell getRectangleText(float x0, float y0, float x1, float y1, TreeMap<Float, TreeMap<Float, SimpleTextPosition>> tableContents) {
         var sb = new StringBuilder(100);
@@ -735,9 +736,11 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine implements Close
      * @param tableEnd Pattern outside the table to search for. If null, the
      * bottom-most horizontal line on the page is assumed to be the bottom of
      * the table
-     * @return Y coordinate of bottom-most line
+     * @param headingColour The background colour of the heading. If not null, a
+     * rectangle of this colour indicates the end of the table
+     * @return whether the end of the table has been found
      */
-    protected boolean findEndTable(FRectangle bounds, Pattern tableEnd, Color headingColor) {
+    protected boolean findEndTable(FRectangle bounds, Pattern tableEnd, Color headingColour) {
         LOG.traceEntry("findEndTable \"{}\"", (tableEnd == null ? "null" : tableEnd.toString()));
         // Scan through the text for the endTable delimiter text
         if (tableEnd != null) {
@@ -759,10 +762,10 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine implements Close
             LOG.debug("Page {}: Table end delimiter \"{}\" not found", currPage, tableEnd.toString());
         }
 
-        if (headingColor != null) {
+        if (headingColour != null) {
             // Assume that the next table heading delimits the bottom of the table
             // Ignore rectangles that are outside the X bounds of the table
-            var rects = new TreeMap<>(rectangles.get(headingColor.getRGB()).tailMap(bounds.getMinY() + tableDef.tolerance));
+            var rects = new TreeMap<>(rectangles.get(headingColour.getRGB()).tailMap(bounds.getMinY() + tableDef.tolerance));
             for (var it = rects.entrySet().iterator(); it.hasNext();) {
                 var r = it.next();
                 if (r.getValue().ceilingEntry(bounds.getMinX()) == null || r.getValue().floorKey(bounds.getMaxX()) == null) {
@@ -801,17 +804,19 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine implements Close
      * Find a table matching the criteria on the given page.
      *
      * Scans the rectangles sorted collection for the first rectangle of the
-     * heading colour. Then expands the X,Y limits until it finds the first data
-     * colour rectangle (if any). The bottom of the heading, and therefore the
-     * top of the data, is at this Y coordinate.
+     * heading colour. Then expands the X,Y limits until it finds the first
+     * rectangle of a different colour (if any). The bottom of the heading
+     * colour rectangle, and therefore the top of the data, is at this Y
+     * coordinate.
+     *
+     * May be overridden if there is some other mechanism to identify the top of
+     * the table.
      *
      * @param headingColour Fill colour of heading, may be null
-     * @param dataColour Fill colour of data, may be null
      * @param bounds Destination for bounds of found table. The top, left, right
      * bounds are populated. The bottom bound maxY is not calculated yet.
-     * @return number of columns
-     * @throws java.io.IOException for file errors May be overridden if there is
-     * some other mechanism to identify the top of the table.
+     * @return whether the table has been found
+     * @throws IOException for file errors.
      */
     protected boolean findTable(FRectangle bounds, Color headingColour) throws IOException {
         LOG.traceEntry("findTable(\"{}\")", headingColour);
@@ -879,10 +884,10 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine implements Close
     /**
      * Append a rectangle to the output
      *
-     * @param p0
-     * @param p1
-     * @param p2
-     * @param p3
+     * @param p0 first vertex of rectangle
+     * @param p1 second vertex of rectangle
+     * @param p2 third vertex of rectangle
+     * @param p3 fourth vertex of rectangle
      */
     @Override
     public void appendRectangle(Point2D p0, Point2D p1, Point2D p2, Point2D p3) {
@@ -899,9 +904,6 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine implements Close
      *
      * Coordinates are in the display coordinate system
      *
-     * @param fillColour
-     * @param strokeColour
-     * @param stroke
      */
     private void addFilledRectangle() throws IOException {
         var fillColour = getNonStrokingColor();
@@ -1239,8 +1241,8 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine implements Close
     }
 
     // NOTE: there are more methods in PDFStreamEngine which can be overridden here too.
-
-    /** Close stripper and release memory
+    /**
+     * Close stripper and release memory
      *
      * @throws IOException
      */

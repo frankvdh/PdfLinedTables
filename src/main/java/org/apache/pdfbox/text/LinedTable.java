@@ -32,6 +32,11 @@ public class LinedTable {
 
     final private String name;
 
+    /**
+     * Get the table's name
+     *
+     * @return the name of the table
+     */
     public String getName() {
         return name;
     }
@@ -50,11 +55,28 @@ public class LinedTable {
     /**
      * Constructor.
      *
-     * @param name
-     * @param pageNo Page to be read -- 1-based.
+     * @param name table name
      * @param headingColour table Heading Color... used to locate the table
-     * @param endTable
-     * @param data
+     * @param endTable Pattern to identify the end of the table
+     * @param suppressDuplicateOverlappingText flag to suppress duplication of
+     * text used in PDFs for boldface
+     * @param extraQuadrantRotation number of extra 90deg rotations to apply
+     * @param tolerance Tolerance to use in deciding if two points are the same
+     * or not
+     * @param leadingSpaces Flag whether to generate leading spaces to
+     * approximate the layout of text within a cell
+     * @param reduceSpaces Flag whether to reduce multiple consecutive spaces to
+     * a single space
+     * @param removeEmptyRows Flag whether to remove rows of empty cells from
+     * the table
+     * @param startOnNewPage Flag whether this table starts on a new page in the
+     * PDF
+     * @param mergeWrappedRows Flag whether to merge rows of cells across a page
+     * boundary into a single row
+     * @param lineEnding String to insert to represent a line ending in a cell;
+     * using a space will make all text within a cell into a single line. Using
+     * a newline character will keep the line wrapping that is present in the
+     * cell
      */
     public LinedTable(String name, Color headingColour,
             Pattern endTable, boolean suppressDuplicateOverlappingText,
@@ -79,12 +101,28 @@ public class LinedTable {
     /**
      * Constructor.
      *
-     * @param name
-     * @param headingColours table Heading Color... used to locate the table
-     * @param endTable
-     * @param suppressDuplicateOverlappingText
-     * @param extraQuadrantRotation
-     * @param tolerance
+ * @param name table name
+     * @param headingColours table Heading Colours... used to locate the table
+     * @param endTable Pattern to identify the end of the table
+     * @param suppressDuplicateOverlappingText flag to suppress duplication of
+     * text used in PDFs for boldface
+     * @param extraQuadrantRotation number of extra 90deg rotations to apply
+     * @param tolerance Tolerance to use in deciding if two points are the same
+     * or not
+     * @param leadingSpaces Flag whether to generate leading spaces to
+     * approximate the layout of text within a cell
+     * @param reduceSpaces Flag whether to reduce multiple consecutive spaces to
+     * a single space
+     * @param removeEmptyRows Flag whether to remove rows of empty cells from
+     * the table
+     * @param startOnNewPage Flag whether this table starts on a new page in the
+     * PDF
+     * @param mergeWrappedRows Flag whether to merge rows of cells across a page
+     * boundary into a single row
+     * @param lineEnding String to insert to represent a line ending in a cell;
+     * using a space will make all text within a cell into a single line. Using
+     * a newline character will keep the line wrapping that is present in the
+     * cell
      */
     public LinedTable(String name, Color[] headingColours,
             Pattern endTable, boolean suppressDuplicateOverlappingText,
@@ -107,10 +145,12 @@ public class LinedTable {
     }
 
     /**
+     * Extract a table from the PDF document contained in the file, starting at the give page
      *
-     * @param file
-     * @return
-     * @throws IOException
+     * @param file The file containing the document
+     * @param firstPageNo The first page of the table
+     * @return A list of String arrays, with on array for each row of the table, and one String for each cell within therow
+     * @throws IOException if there is a problem reading the file
      */
     public ArrayList<String[]> extractTable(File file, int firstPageNo) throws IOException {
         try (var stripper = new LinedTableStripper(file)) {

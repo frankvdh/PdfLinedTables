@@ -39,7 +39,7 @@ import org.apache.logging.log4j.Logger;
  *
  * Tables may start on a new page, or they may be further down the same page.
  *
- * @see PDFTable
+ * See also PDFTable
  *
  * @author <a href="mailto:drifter.frank@gmail.com">Frank van der Hulst</a>
  */
