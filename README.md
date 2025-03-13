@@ -21,7 +21,9 @@ PDFBox Lined Table Stripper
 This project is designed to make it easy to extract tabular information from
 PDF files, where the table cells are delineated by vertical and horizontal
 graphic lines. The specific motivation is to extract tables from the
-aip.net.nz website, which come in a variety of layouts.
+aip.net.nz website, which come in a variety of layouts. Hearing that this
+is useful to people also motivates me... please do email me at 
+drifter.frank@gmail.com if you find this useful.
 
 A table is extracted from a PDF document to an ArrayList of String arrays. Each
 row of the table is contained in a String array. The graphic lines in the PDF 
@@ -105,11 +107,13 @@ first row of cells on the next page, to handle the case where a single row of
 cells spans 2 pages. This is identified when the first row on the second page
 has a blank string as its first value.
 
-This project is based on the [Apache PDFBox](https://pdfbox.apache.org/) library.
-It is an open source Java tool for extracting data from tables in PDF documents. 
-It uses v3.0.3 of the PDFBox library to perform the low-level file access, so 
-this must be included in the project's dependencies. PDFBox and the PDFBOX Lined 
-Table Stripper are published under the Apache License, Version 2.0.
+See the test sources for examples of LinedTable and MultipleTables definitions. 
+
+This project is based on the [Apache PDFBox](https://pdfbox.apache.org/) library,
+for which I am most grateful. It uses v3.0.3 of the PDFBox library to perform the 
+low-level PDF document access, so PDFBOX must be included in the project's 
+dependencies. PDFBox and the PDFBOX Lined Table Stripper are published under the 
+Apache License, Version 2.0.
 
 PDFBox is a project of the [Apache Software Foundation](https://www.apache.org/).
 
@@ -117,9 +121,9 @@ Test Data
 ---------
 
 Because this project is designed to extract data from files downloaded from
-aip.net.nz, testing uses the files listed. However, these files are
+aip.net.nz, testing uses the files listed below. However, these files are
 copyright, and explicitly not allowed to be redistributed, so cannot be
-included in the project. However, you can download these files for free by 
+included in this project. However, you can download these files for free by 
 visiting https://aip.net.nz . They should be copied to the /src/test/resources/AIP
 directory of this project.
 
@@ -161,7 +165,7 @@ Build
 -----
 
 You need JDK 21 (or higher) and [Maven 3](https://maven.apache.org/) to
-build this project. This is higher than the PDFBOX project itself.
+build this project. This is a later version than the PDFBOX project requires.
 
 Support
 -------

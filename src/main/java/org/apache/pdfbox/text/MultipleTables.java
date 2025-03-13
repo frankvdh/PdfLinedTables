@@ -49,9 +49,8 @@ public class MultipleTables {
     final ArrayList<LinedTable> tables = new ArrayList<>();
 
     /**
+     * Constructor
      *
-     * @param marginHeight Height of footer of each page.
-     * @param file
      * @param tabs Table layouts
      */
     @SuppressWarnings("unchecked")
@@ -62,15 +61,16 @@ public class MultipleTables {
     /** Get specified table
      *
      * @param n Number of table to get. 0-based.
-     * @return
+     * @return selected table
      */
     public LinedTable getTable(int n) {
         return tables.get(n);
     }
 
-    /** get number of tables
+    /** 
+     * Get number of tables
      *
-     * @return
+     * @return number of tables
      */
     public int numTables() {
         return tables.size();
@@ -87,10 +87,13 @@ public class MultipleTables {
     /**
      * Parse all tables in the specified PDF file.
      *
+     * @param file File to extract tables from
+     * @param firstPageNo Page to start extracting tables from, 1-based
+     * 
      * @return all tables. Each String[] entry contains each row in the table.
      * Each row is an array of Strings, with one entry for each column in the
      * table.
-     * @throws IOException
+     * @throws IOException for file read errors
      */
     public ArrayList<ArrayList<String[]>> extractTables(File file, int firstPageNo) throws IOException {
         var result = new ArrayList<ArrayList<String[]>>(tables.size());

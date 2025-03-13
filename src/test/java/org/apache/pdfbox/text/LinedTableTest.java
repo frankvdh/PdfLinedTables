@@ -23,6 +23,11 @@ public class LinedTableTest {
 
     private static final Logger LOG = LogManager.getLogger(LinedTableTest.class);
 
+    /**
+     * Test reading single one row by 2 column PDF
+     *
+     * @throws IOException
+     */
     @Test
     public void oneRow() throws IOException {
         var def = new LinedTable("one row", Color.BLACK, null, true, 0, 1, false, true, true, true, false, "\n");
@@ -32,6 +37,11 @@ public class LinedTableTest {
                 new TestValue(1-1, -1, "data2"));
     }
 
+    /**
+     * Test reading LFZ PDF, spot-checking a few values
+     *
+     * @throws IOException
+     */
     @Test
     public void LFZ() throws IOException {
         var lfz = new LinedTable("LFZ", Color.BLACK, Pattern.compile("\\*\\*\\*"), true, 0, 1, false, true, false, true, false, " ");
@@ -41,6 +51,11 @@ public class LinedTableTest {
                 new TestValue(52-1, -1, "[Organisation or Authority:] Central Otago Flying Club, PO Box 159, Alexandra, TEL (03) 448 9050"));
 }
 
+    /**
+     * Test reading runway table from NZMJ PDF, spot-checking a few values
+     *
+     * @throws IOException
+     */
     @Test
     public void NZMJ() throws IOException {
         var coords = new LinedTable("NZMJ", Color.BLACK, null, true, 0, 1, false, true, true, true, false, "\n");
@@ -50,6 +65,11 @@ public class LinedTableTest {
                 new TestValue(3-1, -1, "564"));
     }
     
+    /**
+     * Test reading runway table from NZMF PDF, spot-checking a few values
+     *
+     * @throws IOException
+     */
     @Test
     public void NZMF() throws IOException {
         var coords = new LinedTable("NZMF", Color.BLACK, null, true, 0, 1, false, true, true, true, false, "\n");
@@ -59,6 +79,11 @@ public class LinedTableTest {
                 new TestValue(3-1, -1, "767"));
     }
     
+    /**
+     * Test reading runway table from NZPH PDF, spot-checking a few values
+     *
+     * @throws IOException
+     */
     @Test
     public void NZPH() throws IOException {
         var coords = new LinedTable("NZPH", Color.BLACK, null, true, 0, 1, false, true, true, true, false, "\n");
@@ -68,6 +93,11 @@ public class LinedTableTest {
                 new TestValue(3-1, -1, "860"));
 }
    
+    /**
+     * Test reading runway table from NZKT PDF, spot-checking a few values
+     *
+     * @throws IOException
+     */
     @Test
     public void NZKT() throws IOException {
         var coords = new LinedTable("NZKT", Color.BLACK, null, true, 0, 1, false, true, true, true, false, "\n");
@@ -77,6 +107,11 @@ public class LinedTableTest {
                 new TestValue(4-1, -1, "1170\n1018"));
 }
 
+    /**
+     * Test reading first page only of coordinates PDF, spot-checking a few values
+     *
+     * @throws IOException
+     */
     @Test
     public void Coordinates_firstPage() throws IOException {
         var def = new LinedTable("Coordinates 1st page", Color.BLACK, null, true, 0, 1, false, true, true, true, false, "\n");
@@ -86,6 +121,11 @@ public class LinedTableTest {
                 new TestValue(19-1, -1, "1753031.00E"));
     }
 
+    /**
+     * Test reading all pages of coordinates PDF, spot-checking a few values
+     *
+     * @throws IOException
+     */
     @Test
     public void Coordinates() throws IOException {
         var def = new LinedTable("Coordinates", Color.BLACK, Pattern.compile("\\*\\*\\*"), true, 0, 1, false, true, true, true, false, "\n");
@@ -95,6 +135,11 @@ public class LinedTableTest {
                 new TestValue(218-1, -1, "1735213.00E"));
     }
 
+    /**
+     * Test reading QNH PDF, spot-checking a few values
+     *
+     * @throws IOException
+     */
     @Test
     public void QNH() throws IOException {
         var def = new LinedTable("QNH", Color.BLACK, null, true, 0, 1, false, true, true, true, false, "\n");
@@ -104,6 +149,11 @@ public class LinedTableTest {
                 new TestValue(12-1, -1, ""));
     }
 
+    /**
+     * Test reading VRP PDF, spot-checking a few values
+     *
+     * @throws IOException
+     */
     @Test
     public void VRP() throws IOException {
         var def = new LinedTable("VRP", Color.BLACK, Pattern.compile("\\*\\*\\*"), true, 0, 1, false, true, true, true, true, " ");
@@ -113,6 +163,11 @@ public class LinedTableTest {
                 new TestValue(634-1, -1, "1674858.20E"));
     }
 
+    /**
+     * Test reading PLA PDF, spot-checking a few values
+     *
+     * @throws IOException
+     */
     @Test
     public void PLA() throws IOException {
         var def = new LinedTable("PLA", Color.BLACK, null, true, 0, 1, false, true, true, true, false, " ");
@@ -122,6 +177,11 @@ public class LinedTableTest {
                 new TestValue(16-1, -1, "[Organisation or Authority:] Using agency: Skydive Queenstown Ltd (trading as Nzone Skydive), PO Box 554, Queenstown 9348, TEL (03) 442 2256"));
     }
 
+    /**
+     * Test reading first page only of GEN 3.7 PDF, spot-checking a few values
+     *
+     * @throws IOException
+     */
     @Test
     public void GEN_3_7_firstPage() throws IOException {
         var def = new LinedTable("GEN 3.7 page 1", new Color(223, 223, 223), null, true, 1, 1, false, true, true, true, false, "\n");
@@ -131,6 +191,11 @@ public class LinedTableTest {
                 new TestValue(8-1, -1, "AVBL for IFR ACFT on GND at\nNZAS"));
     }
 
+    /**
+     * Test reading all pages of GEN 3.7 PDF, spot-checking a few values
+     *
+     * @throws IOException
+     */
     @Test
     public void GEN_3_7_table() throws IOException {
         var def = new LinedTable("GEN 3.7 table", new Color(223, 223, 223), Pattern.compile("Table\\s?GEN\\s?3.7-2"), true, 1, 1, false, true, true, true, false, "\n");
@@ -140,6 +205,11 @@ public class LinedTableTest {
                 new TestValue(259-1, -1, "Nominal range at 10,000 ft: 80 NM\nNote: Terrain shielding may reduce\nAVBL range. ELEV 110 ft"));
     }
 
+    /**
+     * Test reading zones table from CTA PDF, spot-checking a few values
+     *
+     * @throws IOException
+     */
     @Test
     public void CtaZones() throws IOException {
         var def = new LinedTable("CTA zones", Color.BLACK, Pattern.compile("\\*\\*\\*"), true, 0, 2, false, true, true, true, false, " ");
@@ -149,6 +219,11 @@ public class LinedTableTest {
                 new TestValue(125-1, -1, "FL"));
     }
 
+    /**
+     * Test reading points table from CTA PDF, spot-checking a few values
+     *
+     * @throws IOException
+     */
     @Test
     public void CtaPoints() throws IOException {
         var def = new LinedTable("CTA points", new Color[]{Color.BLACK, new Color(0x66, 0x66, 0x66)}, Pattern.compile("\\*\\*\\*"), true, 0, 2, false, true, true, true, false, " ");
@@ -158,9 +233,14 @@ public class LinedTableTest {
                 new TestValue(1330-1, 1, "16"));
     }  
 
+    /**
+     * Test reading zones table from CTA PDF, spot-checking a few values
+     *
+     * @throws IOException
+     */
     @Test
     public void NzrNames() throws IOException {
-        var def = new LinedTable("NZR names", new Color[]{Color.BLACK, new Color(0x666666)}, Pattern.compile("\\*\\*\\*"), true, 0, 1, false, true, true, true, true, "\n");
+        var def = new LinedTable("NZR zones", new Color[]{Color.BLACK, new Color(0x666666)}, Pattern.compile("\\*\\*\\*"), true, 0, 1, false, true, true, true, true, "\n");
         strip("AIP/1_05_NZANR_Part_71_Restricted_Areas_R.pdf", 1, def, 21, 
                 new TestValue(0, 0, "NZR001"), 
                 new TestValue(21/2, 1, "CAPE KIDNAPPERS"), 
@@ -180,6 +260,7 @@ public class LinedTableTest {
         assertEquals(middle.getValue(), table.get(middle.row)[middle.col]);
          assertEquals(last.getValue(), table.get(last.row)[last.col < 0 ? table.get(last.row).length + last.col: last.col]);
     }
+    
     private class TestValue {
         final int row, col;
         final String value;

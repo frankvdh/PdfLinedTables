@@ -28,11 +28,11 @@ public class TableCell extends FRectangle {
     /**
      * Basic constructor
      *
-     * @param x0
-     * @param y0
-     * @param x1
-     * @param y1
-     * @param text
+     * @param x0    left edge of cell
+     * @param y0    bottom edge of cell
+     * @param x1    right edge of cell
+     * @param y1    top edge of cell
+     * @param text  Text contained in cell
      */
     public TableCell(float x0, float y0, float x1, float y1, String text) {
         super(null, null, x0, y0, x1, y1);
@@ -41,7 +41,7 @@ public class TableCell extends FRectangle {
 
     /** Get text in this cell
      *
-     * @return
+     * @return text contained in cell
      */
     public String getText() {
         return text;
@@ -49,7 +49,7 @@ public class TableCell extends FRectangle {
 
     /** Set text in this cell
      *
-     * @param text
+     * @param text Text to put in cell
      */
     public void setText(String text) {
         this.text = text;
@@ -57,7 +57,7 @@ public class TableCell extends FRectangle {
     
     /** Convert to String
      *
-     * @return
+     * @return string representation of object
      */
     @Override
     public String toString() {

@@ -23,6 +23,11 @@ public class MultipleTablesTest {
 
     private static final Logger LOG = LogManager.getLogger(MultipleTablesTest.class);
 
+    /**
+     * Test reading all tables from Navaids PDF, spot-checking a few values
+     *
+     * @throws IOException
+     */
     @Test
     public void IfrNavaids() throws IOException {
         LOG.debug("MultipleTables test");
@@ -58,6 +63,11 @@ public class MultipleTablesTest {
                         new TestValue(5 - 1, -1, "MHZ")}});
     }
 
+    /**
+     * Test reading both zones & points tables from CTA PDF, spot-checking a few values
+     *
+     * @throws IOException
+     */
     @Test
     public void CTA() throws IOException {
         var mt = new MultipleTables(
@@ -77,6 +87,11 @@ public class MultipleTablesTest {
         );
     }
 
+    /**
+     * Test reading both zones & points tables from LFZ PDF, spot-checking a few values
+     *
+     * @throws IOException
+     */
     @Test
     public void LFZ() throws IOException {
         var mt = new MultipleTables(
@@ -94,6 +109,11 @@ public class MultipleTablesTest {
         );
     }
 
+    /**
+     * Test reading both zones & points tables from GAA PDF, spot-checking a few values
+     *
+     * @throws IOException
+     */
     @Test
     public void GAA() throws IOException {
         var mt = new MultipleTables(
@@ -111,6 +131,11 @@ public class MultipleTablesTest {
         );
     }
 
+    /**
+     * Test reading both zones & points tables from MBZ PDF, spot-checking a few values
+     *
+     * @throws IOException
+     */
     @Test
     public void MBZ() throws IOException {
         var mt = new MultipleTables(
@@ -131,6 +156,11 @@ public class MultipleTablesTest {
         );
     }
 
+    /**
+     * Test reading both zones & points tables from NZD PDF, spot-checking a few values
+     *
+     * @throws IOException
+     */
     @Test
     public void NZD() throws IOException {
         var mt = new MultipleTables(
@@ -151,6 +181,11 @@ public class MultipleTablesTest {
         );
     }
 
+    /**
+     * Test reading both zones & 2 points tables from NZR PDF, spot-checking a few values
+     *
+     * @throws IOException
+     */
     @Test
     public void NZR() throws IOException {
         var mt = new MultipleTables(
@@ -178,6 +213,11 @@ public class MultipleTablesTest {
         );
     }
 
+    /**
+     * Test reading both zones & 2 points tables from VHZ PDF, spot-checking a few values
+     *
+     * @throws IOException
+     */
     @Test
     public void VHZ() throws IOException {
         var mt = new MultipleTables(

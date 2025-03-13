@@ -128,6 +128,12 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine implements Close
     private boolean endTableFound;
     private float endTablePos = 0f;
 
+    /**
+     * Get the Y coordinate of the bottom of the table, precalculated in
+     * findTable or findEndTable
+     *
+     * @return end table Y coordinate
+     */
     public float getTableBottom() {
         return endTablePos;
     }
@@ -136,6 +142,12 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine implements Close
 
     private int currPage = Integer.MIN_VALUE;
 
+    /**
+     * Get the number of the current page. This is the same as the page number
+     * displayed by Adobe Reader, starting at 1.
+     *
+     * @return 1-based page number
+     */
     public int getCurrPageNum() {
         return currPage + 1; // currPage is 0-based, externally pages are 1-based
     }
@@ -1069,7 +1081,7 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine implements Close
     /**
      * Add a stroked path (i.e. a set of lines) to the maps
      *
-     * @throws IOException
+     * @throws IOException for GraphicsStreamEngine
      */
     @Override
     public void strokePath() throws IOException {
@@ -1080,7 +1092,7 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine implements Close
     /**
      * Add a filled path (i.e. a shaded rectangle) to the map
      *
-     * @throws IOException
+     * @throws IOException for GraphicsStreamEngine
      */
     @Override
     public void fillPath(int windingRule) throws IOException {
@@ -1125,57 +1137,122 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine implements Close
         return getColor(getGraphicsState().getNonStrokingColor());
     }
 
+    /**
+     * Ignore clipping
+     *
+     * @param windingRule winding rule for PDFGraphicsStreamEngine
+     */
     @Override
     public void clip(int windingRule) {
     }
 
+    /**
+     * Start a new line path at the given coordinates
+     *
+     * @param x X coordinate
+     * @param y Y coordinate
+     */
     @Override
     public void moveTo(float x, float y) {
         LOG.traceEntry("moveTo {}, {}", x, y);
         linePath.moveTo(x, y);
     }
 
+    /**
+     * Add a line segment to the line path
+     *
+     * @param x X coordinate of end of new line segment
+     * @param y Y coordinate of end of new line segment
+     */
     @Override
     public void lineTo(float x, float y) {
         LOG.traceEntry("lineTo {}, {}", x, y);
         linePath.lineTo(x, y);
     }
 
+    /**
+     * curveTo() is called by the PDF parser to draw a curved line. Ignored,
+     * because only straight lines delimit table cells.
+     *
+     * @param x1 X
+     * @param y1 Y
+     * @param x2 X
+     * @param y2 Y
+     * @param x3 X
+     * @param y3 Y
+     */
     @Override
     public void curveTo(float x1, float y1, float x2, float y2, float x3, float y3) {
         LOG.debug("curveTo ignored: {} {}, {} {}, {} {}", x1, y1, x2, y2, x3, y3);
     }
 
+    /**
+     * Get the end of the line path
+     *
+     * @return X,Y coordinates
+     */
     @Override
     public Point2D getCurrentPoint() {
         return linePath.getCurrentPoint();
     }
 
+    /**
+     * Called by the PDF parser to close the line path. Ignored.
+     *
+     */
     @Override
     public void closePath() {
     }
 
+    /**
+     * Called by the PDF parser when linePath is complete. Discards linePath.
+     *
+     */
     @Override
     public void endPath() {
         LOG.traceEntry("endPath: {}", linePath);
         linePath.reset();
     }
 
+    /**
+     * Called by the PDF parser to draw an image. Ignored.
+     *
+     * @param pdImage image to draw
+     * @throws IOException  for PDFGraphicsStreamEngine
+     */
     @Override
     public void drawImage(PDImage pdImage) throws IOException {
         LOG.debug("{} Image {} by {} at {}, {} ignored", pdImage.getSuffix(), pdImage.getWidth(), pdImage.getHeight(), pdImage.getImage().getMinX(), pdImage.getImage().getMinY());
     }
 
+    /**
+     * Called by the PDF parser to close the line path. Ignored.
+     *
+     * @param form form to show
+     * @throws IOException  for PDFGraphicsStreamEngine
+     */
     @Override
     public void showForm(PDFormXObject form) throws IOException {
         LOG.debug("Form ignored {}", form.getBBox());
     }
 
+    /**
+     * Called by the PDF parser to define a shading (gradient) fill. Ignored.
+     *
+     * @param shadingName name of fill
+     * @throws IOException  for PDFGraphicsStreamEngine
+     */
     @Override
     public void shadingFill(COSName shadingName) throws IOException {
         LOG.debug("shadingFill ignored {}", shadingName);
     }
 
+    /**
+     * Called by the PDF parser to show an annotation. Ignored.
+     *
+     * @param annotation annotation to show
+     * @throws IOException  for PDFGraphicsStreamEngine
+     */
     @Override
     public void showAnnotation(PDAnnotation annotation) throws IOException {
         LOG.debug("Annotation ignored {}", annotation.getRectangle());
@@ -1188,8 +1265,11 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine implements Close
      * represented by the same character output twice with a small offset.
      * Otherwise adds the character to a table of locations.
      *
-     * @param string the encoded text
-     * @throws IOException if there is an error processing the string
+     * @param textRenderingMatrix for PDFGraphicsStreamEngine
+     * @param font for PDFGraphicsStreamEngine
+     * @param code for PDFGraphicsStreamEngine
+     * @param displacement for PDFGraphicsStreamEngine
+     * @throws IOException for PDFGraphicsStreamEngine
      */
     @Override
     protected void showGlyph(Matrix textRenderingMatrix, PDFont font, int code, Vector displacement) throws IOException {
@@ -1240,14 +1320,16 @@ public class LinedTableStripper extends PDFGraphicsStreamEngine implements Close
         sortedRow.put(tp.getX(), tp);
     }
 
-    // NOTE: there are more methods in PDFStreamEngine which can be overridden here too.
     /**
      * Close stripper and release memory
      *
-     * @throws IOException
+     * @throws IOException for error closing the engine
      */
     @Override
     public void close() throws IOException {
         doc.close();
     }
+
+        // NOTE: there are more methods in PDFGraphicsStreamEngine which can be overridden here too.
+
 }
